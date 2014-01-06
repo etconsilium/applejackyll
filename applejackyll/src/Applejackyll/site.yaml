@@ -1,0 +1,91 @@
+#Default Configuration 
+
+#	directories
+root:       /tmp
+#	root + 
+source:      _posts
+destination: _site
+plugins:     _plugins
+layouts:     _layouts
+#files
+include:	['*.md','*.markdown','*.MD','*.html']
+#dirs
+exclude:	['.git','.svn']
+#files
+notname:	['.*']
+
+#	baseurl+
+download_dir:	'downloads/'
+code_dir:		'downloads/code/'
+category_dir:	'categories/'
+tag_dir:	    'tags/'
+
+timezone:    Europe/Moscow
+
+posts:		[]
+related_posts:	[]
+categories:	[]
+tags:		[]
+
+future:      true
+show_drafts: false
+limit_posts: 0
+pygments:    true
+
+relative_permalinks: true
+
+permalink:     'Y/m/d/title'
+paginate_path: 'page:num'
+
+markdown:      maruku
+markdown_ext:  markdown,mkd,mkdn,md
+textile_ext:   textile
+
+excerpt_separator: "\n\n"
+
+safe:        false
+# deprecated
+watch:       false
+# deprecated
+server:      false
+host:        0.0.0.0
+port:        4000
+baseurl:     /
+url:         http://localhost:4000
+lsi:         false
+
+maruku:
+  use_tex:    false
+  use_divs:   false
+  png_engine: blahtex
+  png_dir:    images/latex
+  png_url:    /images/latex
+
+rdiscount:
+  extensions: []
+
+redcarpet:
+  extensions: []
+
+kramdown:
+  auto_ids: true
+  footnote_nr: 1
+  entity_output: as_char
+  toc_levels: 1..6
+  smart_quotes: lsquo,rsquo,ldquo,rdquo
+  use_coderay: false
+
+  coderay:
+    coderay_wrap: div
+    coderay_line_numbers: inline
+    coderay_line_numbers_start: 1
+    coderay_tab_width: 4
+    coderay_bold_every: 10
+    coderay_css: style
+
+redcloth:
+  hard_breaks: true
+
+
+# пс: судя по дальнейшей документации [http://jekyllrb.com/docs/posts/](http://jekyllrb.com/docs/posts/),
+# все переменные этого раздела (которые дальше сливаются с _config.yml) передаются массивом site: `{{ site.url }}`.

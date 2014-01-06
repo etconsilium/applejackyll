@@ -1,0 +1,29 @@
+{
+	"name":"etconsilium/applejackyll"
+	,"description": "Jekyll's PHP clone"
+	,"tags":["jekyll","octopress"]
+	,"keywords": ["jekyll","octopress","php"]
+	,"license": "BSDLv2"
+	,"copyright": "(cc-ny-nc)"
+    ,"authors": [
+         {
+             "email": "v.koltsov@gmail.com"
+         }
+     ],
+    "require": {
+		"php":">5.3"
+		,
+        "silex/silex": "~1.1",
+        "symfony/finder": "~2.4",
+        "symfony/translation": "~2.4",
+        "symfony/twig": "~2.4",
+        "symfony/yaml": "dev-master",
+
+        "aptoma/twig-markdown": "dev-master"
+    }
+	,
+	"autoload": {
+        "psr-0": { "Applejackyll": "src/" }
+    },
+
+}
