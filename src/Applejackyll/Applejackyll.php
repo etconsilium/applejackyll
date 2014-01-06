@@ -77,6 +77,7 @@ class Applejackyll{
             $page['content']=$page[0]; unset($page[0]);
 
             //
+            $page['url']=
             $page['permalink']=$site['baseurl']
                 .$site['destination'].DIRECTORY_SEPARATOR
                 .($fi->getRelativePath()).DIRECTORY_SEPARATOR
@@ -84,8 +85,13 @@ class Applejackyll{
 
             $target[(string)$fi]=$fn=$site['root'].DIRECTORY_SEPARATOR.$page['permalink'];
 
+            $page['date']=$fi->getMTime();
+            $page['path']=(string)$fi;  //  raw
+            $page['id']=md5_file((string)$fi);  //  нужен неизменяемый вариант для адреса в рсс\атом
+
             //
-            $filesystem->dumpFile($fn,$page['content'],0644);
+            $a=\Spyc::YAMLDump($page,2,0); var_dump($a);
+            $filesystem->dumpFile($fn,\Spyc::YAMLDump($page,2,0),0644);
 
             //
             if (!empty($page['category'])) $page['categories'][]=$page['category'];
