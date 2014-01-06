@@ -1,3 +1,3 @@
-# ApplejaKyll
+# Applejackyll
 
 Jeckyll clone
