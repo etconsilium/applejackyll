@@ -5,26 +5,26 @@
 	,"keywords": ["jekyll","octopress","php"]
 	,"license": "BSDLv2"
 	,"copyright": "(cc-by-nc)"
-    ,"authors": [
+	,"authors": [
 		{
 			"name":"VS","email": "v.koltsov@gmail.com"
 		}
 	]
 	,"version":"1.2"
-    ,"require": {
+	,"require": {
 		"php":">5.3",
 
 		"symfony/filesystem": "*",
-        "symfony/finder": "~2.4",
+		"symfony/finder": "~2.4",
 
-        "twig/twig": "*",
-        "aptoma/twig-markdown": "dev-master",
-		"michelf/php-markdown": "~1",
+		"twig/twig": "*",
+		"aptoma/twig-markdown": "~0",
+		"michelf/php-markdown": "~1.3",
 
 		"mustangostang/spyc": "*"
-    }
+	}
 	,
 	"autoload": {
-        "psr-0": { "Applejackyll": "src/" }
-    }
+		"psr-0": { "Applejackyll": "src/" }
+	}
 }
