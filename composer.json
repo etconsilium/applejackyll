@@ -4,26 +4,24 @@
 	,"tags":["jekyll","octopress"]
 	,"keywords": ["jekyll","octopress","php"]
 	,"license": "BSDLv2"
-	,"copyright": "(cc-ny-nc)"
+	,"copyright": "(cc-by-nc)"
     ,"authors": [
-         {
-             "email": "v.koltsov@gmail.com"
-         }
-     ]
+		{
+			"name":"VS","email": "v.koltsov@gmail.com"
+		}
+	]
 	,"version":"1.2"
     ,"require": {
 		"php":">5.3",
 
-        "silex/silex": "1.1.2",
-        "pimple/pimple": "~1.1",
-        "symfony/finder": "~2.4",
-        "symfony/twig-bridge": "~2.4",
-        "twig/twig": "*",
-
-        "aptoma/twig-markdown": "dev-master",
 		"symfony/filesystem": "*",
-		"eden/system": "*"
-		,"mustangostang/spyc": "*"
+        "symfony/finder": "~2.4",
+
+        "twig/twig": "*",
+        "aptoma/twig-markdown": "dev-master",
+		"michelf/php-markdown": "~1",
+
+		"mustangostang/spyc": "*"
     }
 	,
 	"autoload": {

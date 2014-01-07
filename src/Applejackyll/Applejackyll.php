@@ -3,16 +3,19 @@
 define ('TIMESTART',microtime(1));
 define ('SITE_CONFIG',__DIR__.'/site.yaml');
 
-use \Silex\Application;
-//use Apache\Log4php;
 use \Symfony\Component\Finder\Finder;
 use \Symfony\Component\Filesystem\Filesystem;
+//use \Eden\System;   //  внедрить вместо ^
+//use \Eden\Type;
+//use \Eden\Core;
+//use \mustangostang\spyc;    //  добавить в композер psr0:{...}
 //use \Symfony\Component\Yaml\Yaml;   //  кривой
-use \Pimple;
-use \Eden\System;   //  внедрить
-use \Eden\Type;
-use \Eden\Core;
-//use \mustangostang\spyc;    //  добавить в композер
+use TwigTestExtension;
+use Twig_Autoloader;
+use Twig_Environment;
+use Twig_Extension;
+use \Aptoma\Twig\Extension\MarkdownExtension;
+use \Aptoma\Twig\Extension\MarkdownEngine;
 
 class Applejackyll{
 
@@ -25,6 +28,7 @@ class Applejackyll{
                         ,'categories'=>array()
                         ,'tags'=>array()
                        );
+    protected $target=array();
 
 
     public function __construct($config=null){
@@ -40,6 +44,7 @@ class Applejackyll{
         $site=&$this->config['site'];
         $page=&$this->config['page'];
         $page=$this->page;
+        $target=&$this->target;
 
         $site['time']=TIMESTART;
         $site['posts']=array();
@@ -73,8 +78,11 @@ class Applejackyll{
         foreach ($site['posts'] as $fi)
         {
             //
-            $page=array_replace_recursive($page,spyc_load_file($fi));
-            $page['content']=$page[0]; unset($page[0]);
+            //$page=array_replace_recursive($page,spyc_load_file($fi)); //	оба парсера работают неудовлетворительно
+            $ar=explode('---',trim(file_get_contents($fi)));
+            //	считаем, что это yaml-front-matter и парсим его на конфиг
+            $page=array_replace_recursive($page,spyc_load($ar[1]));
+            $page['content']=trim($ar[2]);
 
             //
             $page['url']=
@@ -83,15 +91,14 @@ class Applejackyll{
                 .($fi->getRelativePath()).DIRECTORY_SEPARATOR
                 .($fi->getBasename($fi->getExtension())).'html';    //  hardcode
 
-            $target[(string)$fi]=$fn=$site['root'].DIRECTORY_SEPARATOR.$page['permalink'];
+            $target[(string)$fi]=$fn=$site['root'].DIRECTORY_SEPARATOR.$page['permalink'];  //  здесь преобразование имён
 
             $page['date']=$fi->getMTime();
             $page['path']=(string)$fi;  //  raw
             $page['id']=md5_file((string)$fi);  //  нужен неизменяемый вариант для адреса в рсс\атом
 
             //
-            $a=\Spyc::YAMLDump($page,2,0); var_dump($a);
-            $filesystem->dumpFile($fn,\Spyc::YAMLDump($page,2,0),0644);
+            $filesystem->dumpFile($fn,\Spyc::YAMLDump($page),0644);
 
             //
             if (!empty($page['category'])) $page['categories'][]=$page['category'];
@@ -117,8 +124,23 @@ class Applejackyll{
      * @return $this
      */
     public function parse($data=null){
-        $config && $this->init($config);
+        \Twig_Autoloader::register();
+        $twig=new \Twig_Environment(new \Twig_Loader_String());
+        // Uses dflydev\markdown engine
+        //$engine = new MarkdownEngine\DflydevMarkdownEngine();
 
+        // Uses Michelf\Markdown engine (if you prefer)
+        $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
+
+        $twig->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
+
+        if (!empty($this->target))
+            foreach ($this->target as $fn) {
+                $a=spyc_load(file_get_contents($fn));   //  снова косяк с загрузкой из файла
+                $content=$a['content'];
+                $t=$twig->render('{% markdown %}'.$a['content'].'{% endmarkdown %}', array('site'=>$this->config['site'],'page'=>$a));
+                file_put_contents($fn,$t,LOCK_EX);  //  не зачем напрягать фреймворки
+            }
         return $this;
     }
 
