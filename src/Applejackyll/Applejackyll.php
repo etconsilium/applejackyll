@@ -2,14 +2,20 @@
 
 define ('TIMESTART',microtime(1));
 define ('SITE_CONFIG',__DIR__.'/site.yaml');
+define ('APP_SALT',md5_file(__FILE__));
+define ('APP_ID',__NAMESPACE__);
 
+use Doctrine\Common\Cache\FilesystemCache;
+use Doctrine\Common\Cache\MemcacheCache;
+use Doctrine\Common\Cache\MemcachedCache;
+use Doctrine\Common\Cache\MongoDBCache;
+use Doctrine\Common\Cache\PhpFileCache;
+use Doctrine\Common\Cache\RedisCache;
+use Doctrine\Common\Cache\XcacheCache;
+use Doctrine\Common\Cache\ZendDataCache;
 use \Symfony\Component\Finder\Finder;
 use \Symfony\Component\Filesystem\Filesystem;
-//use \Eden\System;   //  внедрить вместо ^
-//use \Eden\Type;
-//use \Eden\Core;
-//use \mustangostang\spyc;    //  добавить в композер psr0:{...}
-//use \Symfony\Component\Yaml\Yaml;   //  кривой
+use \Symfony\Component\Yaml\Yaml;   //  кривой
 use TwigTestExtension;
 use Twig_Autoloader;
 use Twig_Environment;
@@ -17,22 +23,102 @@ use Twig_Extension;
 use \Aptoma\Twig\Extension\MarkdownExtension;
 use \Aptoma\Twig\Extension\MarkdownEngine;
 
-class Applejackyll{
+class CacheSpooler extends \ArrayObject{
+    protected $_tmpdir;
+    function __construct($cache_list=null, $default_temp=null){
+        //  второй параметр злой хардкод
+        $this->_tmpdir = empty($default_temp) ? sys_get_temp_dir().DIRECTORY_SEPARATOR.APP_ID : $default_temp ;
+        var_dump($this->_tmpdir);
+        is_array($cache_list) && $this->init($cache_list);
+    }
 
-    public $config=array('site'=>array(),'page'=>array());
-    private $page=array(
-                        'layout'=>'post'
-                        ,'title'=>''
-                        ,'permalink'=>''
-                        ,'published'=>true
-                        ,'categories'=>array()
-                        ,'tags'=>array()
-                       );
-    protected $target=array();
+    function __call($method,$args) {
+        foreach ($this as $name => $cache) {
+            if (method_exists($cache, $method))
+                return call_user_func_array([$cache, $method], $args);
+        }
+    }
 
+    public function init($configs){
+        foreach ($configs as $name=>$cache) {
+            switch ($cache['adapter']) :
+                case 'Apc':
+                    $this[$name]=new \Doctrine\Common\Cache\ApcCache;
+                    break;
+                case 'Array':
+                    $this[$name]=new \Doctrine\Common\Cache\ArrayCache;
+                    break;
+//                case 'Couchbase': //  через пекл надо ставить
+//                    $this[$name]=(new \Doctrine\Common\Cache\CouchbaseCache())->setCouchbase()
+//                    break;
+                case 'Filesystem':
+                    var_dump(empty($cache['dir']));
+                    empty($cache['dir']) && $cache['dir']=$this->_tmpdir;
+                    var_dump($cache['dir'],$this->_tmpdir);
+                    $this[$name]=(new FilesystemCache($cache['dir']));
+                    break;
+//                case 'Memcache':
+//                    $this[$name]=(new MemcacheCache())->setMemcache((new \Memcache()->addserver()));
+//                    break;
+                case 'Memcached':
+                    empty($cache['servers']) && $cache['servers'][]=['localhost',11211,50];
+                    $memcached=new \Memcached(empty($cache['persistent'])?APP_ID:null);
+                    $memcached->addServers($cache['servers']);
+                    $this[$name]=(new MemcachedCache())->setMemcached($memcached);
+                    break;
+                case 'MongoDB':
+                    empty($cache['server']) && $cache['server']='mongodb://localhost:27017';
+                    empty($cache['options']) && $cache['options']=['connection'=>true];
+                    empty($cache['database']) && $cache['database']='applejackyll';
+                    empty($cache['collection']) && $cache['collection']='cache';
+                    //  MongoConnectionException при ошибке
+                    $this[$name]=(new MongoDBCache(new \MongoCollection(new \MongoDB(new \Mongo($cache['server'],$cache['options']),$cache['database']),$cache['collection'])));
+                    break;
+                case 'PhpFile':
+                    empty($cache['dir']) && $cache['dir']=$this->_tmpdir;
+                    $this[$name]=(new PhpFileCache($cache['dir']));
+                    break;
+//                case 'Redis': //  pecl again
+//                    $this[$name]=(new RedisCache())->setRedis((new \Redis())->connect($cache['host'],$cache['port']));
+//                    break;
+//                case 'Riak':
+//                    break;
+//                case 'WinCache':
+//                    break;
+                case 'Xcache':
+                    $this[$name]=new XcacheCache;
+                    break;
+                case 'ZendData':
+                    $this[$name]=new ZendDataCache;
+                    break;
+                default:
+                    throw new \InvalidArgumentException(sprintf('Not supported `%s` cache adapter. Canceled',$name));
+                    die;
+            endswitch;
+        }
+    }
+}
+
+class Applejackyll extends \stdClass{
+
+    public  $config=['site'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
+    private $page=[
+                    'layout'=>'post'
+                    ,'id'=>null
+                    ,'date'=>null
+                    ,'title'=>''
+                    ,'content'=>''
+                    ,'permalink'=>null
+                    ,'path'=>null
+                    ,'previous'=>null
+                    ,'next'=>null
+                    ,'published'=>true
+                    ,'categories'=>[]
+                    ,'tags'=>[]
+                   ];
 
     public function __construct($config=null){
-        $config && $this->init($config);
+        is_string($config) && $this->init($config);
     }
     /**
      * Parser initialization
@@ -40,70 +126,85 @@ class Applejackyll{
      * @param string Filename (or data-array)
      * @return $this
      */
-    public function init($config){
-        $site=&$this->config['site'];
-        $page=&$this->config['page'];
+    public function init($configfile){
+        $this->config['site']=\Symfony\Component\Yaml\Yaml::parse( file_get_contents($configfile) );
+        $this->config=new \ArrayObject($this->config,\ArrayObject::ARRAY_AS_PROPS);
+//var_dump($this->config->site); die;
+        $site=&$this->config->site;
+        $page=&$this->config->page;
         $page=$this->page;
-        $target=&$this->target;
 
         $site['time']=TIMESTART;
-        $site['posts']=array();
-        $site['categories']=array();
-        $site['tags']=array();
-
-        $site=array_replace_recursive(
-            $site
-            ,spyc_load_file(SITE_CONFIG)
-            ,spyc_load_file($config)
-        );
 
         if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
 
-        $source=$site['root'].DIRECTORY_SEPARATOR.$site['source'];
+        if (empty($site['root'])) $site['root'] = getcwd();
+        $source_dir=$site['root'].DIRECTORY_SEPARATOR.$site['source'];
 
         $finder=(new Finder)->files();
         foreach ($site['include'] as $fn) $finder->name($fn);
+        foreach ($site['exclude'] as $fn) $finder->exclude($fn);
         foreach ($site['notname'] as $fn) $finder->notName($fn);
         $site['posts']=$finder
-            ->in($source)
-            ->exclude($site['exclude'])
+            ->in($source_dir)
             ->ignoreDotFiles(1)
             ->ignoreVCS(1)
             ->ignoreUnreadableDirs(1)
             ->sortByName()
         ;
 
+        var_dump($site['root'].DIRECTORY_SEPARATOR.$site['temp']);
+        $cache=new CacheSpooler($site['cache'], $site['root'].DIRECTORY_SEPARATOR.$site['temp']);
+var_dump($cache);
         $filesystem=new Filesystem();
-
-        foreach ($site['posts'] as $fi)
+        /**
+         * @var $file \SplFileInfo
+         */
+        foreach ($site['posts'] as $file)
         {
-            //
-            //$page=array_replace_recursive($page,spyc_load_file($fi)); //	оба парсера работают неудовлетворительно
-            $ar=explode('---',trim(file_get_contents($fi)));
-            //	считаем, что это yaml-front-matter и парсим его на конфиг
-            $page=array_replace_recursive($page,spyc_load($ar[1]));
-            $page['content']=trim($ar[2]);
+            $ar=explode('---',trim(file_get_contents($realpath=$file->getRealPath())));
 
-            //
+            if (1===count($ar)) {
+                $page['content']=trim($ar[0]);
+            }
+            elseif (2===count($ar)) {
+                $page=array_replace_recursive($page,Yaml::parse($ar[0]));
+                $page['content']=trim($ar[1]);
+            }
+            elseif (2<count($ar)) {
+                $page=array_replace_recursive($page,Yaml::parse(array_shift($ar)));
+                $page['content']=trim(implode('---',$ar));
+            }
+            //  заполняем переменные
+            $page['id']=sha1($realpath);  //  нужен неизменяемый вариант для адреса в рсс\атом
+
+            $fn=$site['root'].DIRECTORY_SEPARATOR.$site['temp'].DIRECTORY_SEPARATOR.$page['id'].'.twig';  //  здесь преобразование имён
+            var_dump($fn);
+            $filesystem->dumpFile($fn,$page['content'],0644);
             $page['url']=
             $page['permalink']=$site['baseurl']
+                .($file->getRelativePath()).DIRECTORY_SEPARATOR
+                .($file->getBasename($file->getExtension())).'.html';    //  hardcode
+
+            $target[$realpath]=
+                $site['root'].DIRECTORY_SEPARATOR
                 .$site['destination'].DIRECTORY_SEPARATOR
-                .($fi->getRelativePath()).DIRECTORY_SEPARATOR
-                .($fi->getBasename($fi->getExtension())).'html';    //  hardcode
+                .($file->getBasename($file->getExtension())).'.html';    //  hardcode
 
-            $target[(string)$fi]=$fn=$site['root'].DIRECTORY_SEPARATOR.$page['permalink'];  //  здесь преобразование имён
-
-            $page['date']=$fi->getMTime();
-            $page['path']=(string)$fi;  //  raw
-            $page['id']=md5_file((string)$fi);  //  нужен неизменяемый вариант для адреса в рсс\атом
-
-            //
-            $filesystem->dumpFile($fn,\Spyc::YAMLDump($page),0644);
+            $page['date']=$file->getMTime();
+            $page['path']=$realpath;  //  raw
 
             //
             if (!empty($page['category'])) $page['categories'][]=$page['category'];
             if (!empty($page['tag'])) $page['tags'][]=$page['tag'];
 
+            /**
+             * $cache \Doctrine\Common\Cache\MemcachedCache
+             */
+//            (new \Doctrine\Common\Cache\MemcachedCache)->save();
+            $cache->save('page#'.$page['id'],$page);
+            $cache->save('config',$this->config);
+/*  это позже
             foreach ($page['categories'] as $tmp) {
                 //  два действия сразу
                 $site['categories'][$tmp][]=$page['permalink'];
@@ -112,7 +213,7 @@ class Applejackyll{
             foreach ($page['tags'] as $tmp) {
                 $site['tags'][$tmp][]=$page['permalink'];
                 $filesystem->symlink($fn,$site['root'].DIRECTORY_SEPARATOR.$site['destination'].$site['tag_dir'].$page['permalink']);
-            }
+            }*/
         }
 
         return $this;

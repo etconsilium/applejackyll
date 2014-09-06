@@ -1,18 +1,124 @@
 #Default Configuration 
+# http://jekyllrb.com/docs/variables/
 
-#	directories
-root:       /tmp
-#	root + 
+time:
+# The current time (when you run)
+
+pages:  []
+# A list of all Pages.
+
+posts:  []
+# A reverse chronological list of all Posts.
+
+related_posts:  []
+# If the page being processed is a Post, this contains a list of up to ten related Posts. By default, these are low quality but fast to compute. For high quality but slow to compute results, run the jekyll command with the --lsi (latent semantic indexing) option.
+
+static_files:   []
+# A list of all static files (i.e. files not processed by Jekyll's converters or the Liquid renderer).
+# Each file has three properties: path, modified_time and extname.
+
+html_pages:   []
+# A list of all HTML Pages.
+
+collections:  []
+# A list of all the collections.
+
+#data: []
+# A list containing the data loaded from the YAML files located in the _data directory.
+
+#documents:  []
+# A list of all the documents in every collection.
+
+categories: []
+# categories.CATEGORY[]
+# The list of all Posts in category CATEGORY.
+
+tags: []
+#tags.TAG
+# The list of all Posts with tag TAG.
+
+
+
+# http://jekyllrb.com/docs/configuration/
+
+#	script_root
+root:
+
+#Site Source
+#Change the directory where Jekyll will read files
 source:      _posts
+
+#Site Destination
+#Change the directory where Jekyll will write files
 destination: _site
-plugins:     _plugins
-layouts:     _layouts
+
+temp:     _cache
+plugins:  _plugins
+layouts:  _layouts
+
+#Disable custom plugins, and ignore symbolic links.
+safe: false
+
+# Force inclusion of files in the conversion
+#files only
+include:  ['*.md','*.markdown','*.MD','*.twig']
+# Exclude directories from the conversion
+#dirs only
+exclude:  ['.git','.svn']
 #files
-include:	['*.md','*.markdown','*.MD','*.html']
-#dirs
-exclude:	['.git','.svn']
-#files
-notname:	['.*']
+notname:  ['.*']
+
+timezone:    'Europe/Moscow'
+date_format: 'Y/m/d'
+
+encoding: 'UTF-8'
+
+# Set defaults for YAML Front Matter variables.
+# Let’s say that you want to add a default layout to all pages and posts in your site. You would add this to your _config.yml file:
+defaults:
+  -
+    scope:
+      path: "projects"
+      type: "pages"
+    values:
+      layout: "project" # overrides previous default layout
+      author: "VS"
+
+
+
+
+#Configuration
+
+#Specify config files instead of using config.yml
+#automatically. Settings in later files override settings in earlier files.
+#config: [FILE1[,FILE2,...]]
+
+#Process and render draft posts.
+drafts: true
+show_drafts: false
+
+#Publish posts with a future date.
+future: true
+
+#Produce an index for related posts.
+#lsi: true
+
+#Limit the number of posts to parse and publish.
+limit_posts: 0
+
+
+#Serve Command Options
+
+#run local server
+# запускать внутренний сервер php. false используется внешний
+watch:  false
+
+host: 127.0.0.1
+port: 4000
+baseurl:  /
+url:  //localhost:4000
+#Detach the server from the terminal
+detach: true
 
 #	baseurl+
 download_dir:	'downloads/'
@@ -20,39 +126,34 @@ code_dir:		'downloads/code/'
 category_dir:	'categories/'
 tag_dir:	    'tags/'
 
-timezone:    Europe/Moscow
-
-posts:		[]
-related_posts:	[]
-categories:	[]
-tags:		[]
-
-future:      true
-show_drafts: false
-limit_posts: 0
-pygments:    true
-
-relative_permalinks: true
+relative_permalinks: false
 
 permalink:     'Y/m/d/title'
 paginate_path: 'page:num'
+transliteration:  false
+
+
+cache:
+# doctrine's adapters
+  memcached:
+    adapter: Memcached
+    persistent: false
+    servers: [      ['localhost',11211,50]    ]
+  filesystem:
+    adapter: Filesystem
+    dir:  ''
+
+
+
+
+
+# не помню, зачем это
 
 markdown:      maruku
 markdown_ext:  markdown,mkd,mkdn,md
 textile_ext:   textile
 
 excerpt_separator: "\n\n"
-
-safe:        false
-# deprecated
-watch:       false
-# deprecated
-server:      false
-host:        0.0.0.0
-port:        4000
-baseurl:     /
-url:         http://localhost:4000
-lsi:         false
 
 maruku:
   use_tex:    false
