@@ -52,9 +52,7 @@ class CacheSpooler extends \ArrayObject{
 //                    $this[$name]=(new \Doctrine\Common\Cache\CouchbaseCache())->setCouchbase()
 //                    break;
                 case 'Filesystem':
-                    var_dump(empty($cache['dir']));
                     empty($cache['dir']) && $cache['dir']=$this->_tmpdir;
-                    var_dump($cache['dir'],$this->_tmpdir);
                     $this[$name]=(new FilesystemCache($cache['dir']));
                     break;
 //                case 'Memcache':
@@ -64,7 +62,8 @@ class CacheSpooler extends \ArrayObject{
                     empty($cache['servers']) && $cache['servers'][]=['localhost',11211,50];
                     $memcached=new \Memcached(empty($cache['persistent'])?APP_ID:null);
                     $memcached->addServers($cache['servers']);
-                    $this[$name]=(new MemcachedCache())->setMemcached($memcached);
+                    $this[$name]=new MemcachedCache();
+                    $this[$name]->setMemcached($memcached);
                     break;
                 case 'MongoDB':
                     empty($cache['server']) && $cache['server']='mongodb://localhost:27017';
@@ -72,7 +71,13 @@ class CacheSpooler extends \ArrayObject{
                     empty($cache['database']) && $cache['database']='applejackyll';
                     empty($cache['collection']) && $cache['collection']='cache';
                     //  MongoConnectionException при ошибке
-                    $this[$name]=(new MongoDBCache(new \MongoCollection(new \MongoDB(new \Mongo($cache['server'],$cache['options']),$cache['database']),$cache['collection'])));
+                    $this[$name]=(new MongoDBCache(
+                        new \MongoCollection(
+                            new \MongoDB(
+                                new \Mongo($cache['server'],$cache['options'])
+                            ,$cache['database'])
+                        ,$cache['collection'])
+                    ));
                     break;
                 case 'PhpFile':
                     empty($cache['dir']) && $cache['dir']=$this->_tmpdir;
@@ -102,6 +107,7 @@ class CacheSpooler extends \ArrayObject{
 class Applejackyll extends \stdClass{
 
     public  $config=['site'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
+    public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
     private $page=[
                     'layout'=>'post'
                     ,'id'=>null
@@ -127,14 +133,17 @@ class Applejackyll extends \stdClass{
      * @return $this
      */
     public function init($configfile){
-        $this->config['site']=\Symfony\Component\Yaml\Yaml::parse( file_get_contents($configfile) );
+        $this->site=\Symfony\Component\Yaml\Yaml::parse( file_get_contents($configfile) );
         $this->config=new \ArrayObject($this->config,\ArrayObject::ARRAY_AS_PROPS);
 //var_dump($this->config->site); die;
-        $site=&$this->config->site;
-        $page=&$this->config->page;
-        $page=$this->page;
-
+        $site=&$this->site;
         $site['time']=TIMESTART;
+//        $page=&$this->site->page;
+//        $this->site->pages[]=&$page;
+        $page=$this->page;
+//        $categories=&$this->site->categories;
+//        $tags=&$this->site->tags;
+
 
         if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
 
@@ -145,7 +154,8 @@ class Applejackyll extends \stdClass{
         foreach ($site['include'] as $fn) $finder->name($fn);
         foreach ($site['exclude'] as $fn) $finder->exclude($fn);
         foreach ($site['notname'] as $fn) $finder->notName($fn);
-        $site['posts']=$finder
+        $posts=$finder
+            ->useBestAdapter()
             ->in($source_dir)
             ->ignoreDotFiles(1)
             ->ignoreVCS(1)
@@ -153,16 +163,18 @@ class Applejackyll extends \stdClass{
             ->sortByName()
         ;
 
-        var_dump($site['root'].DIRECTORY_SEPARATOR.$site['temp']);
         $cache=new CacheSpooler($site['cache'], $site['root'].DIRECTORY_SEPARATOR.$site['temp']);
-var_dump($cache);
         $filesystem=new Filesystem();
+        $tmp_path=$site['root'].DIRECTORY_SEPARATOR.$site['temp'].DIRECTORY_SEPARATOR;
+        $categories=[]; $tags=[];
         /**
          * @var $file \SplFileInfo
          */
-        foreach ($site['posts'] as $file)
-        {
-            $ar=explode('---',trim(file_get_contents($realpath=$file->getRealPath())));
+        foreach ($posts as $file) { //  перевернём позже
+        //  здесь только локальные переменные
+            $page=$this->page;  //  шаблон
+            $realpath=$file->getRealPath();
+            $ar=explode('---',trim(file_get_contents($realpath)));
 
             if (1===count($ar)) {
                 $page['content']=trim($ar[0]);
@@ -178,32 +190,30 @@ var_dump($cache);
             //  заполняем переменные
             $page['id']=sha1($realpath);  //  нужен неизменяемый вариант для адреса в рсс\атом
 
-            $fn=$site['root'].DIRECTORY_SEPARATOR.$site['temp'].DIRECTORY_SEPARATOR.$page['id'].'.twig';  //  здесь преобразование имён
-            var_dump($fn);
-            $filesystem->dumpFile($fn,$page['content'],0644);
+            //  поправить все пути. придумать ид. сделать выделение времени
             $page['url']=
             $page['permalink']=$site['baseurl']
-                .($file->getRelativePath()).DIRECTORY_SEPARATOR
-                .($file->getBasename($file->getExtension())).'.html';    //  hardcode
-
-            $target[$realpath]=
-                $site['root'].DIRECTORY_SEPARATOR
-                .$site['destination'].DIRECTORY_SEPARATOR
-                .($file->getBasename($file->getExtension())).'.html';    //  hardcode
+                .($file->getRelativePath()).'/'
+                .($file->getBasename($file->getExtension())).'html';    //  hardcode
 
             $page['date']=$file->getMTime();
             $page['path']=$realpath;  //  raw
-
+var_dump($page);
             //
             if (!empty($page['category'])) $page['categories'][]=$page['category'];
             if (!empty($page['tag'])) $page['tags'][]=$page['tag'];
+
+            $categories=array_merge($categories,$page['categories']);
+            $tags=array_merge($tags,$page['tags']);
 
             /**
              * $cache \Doctrine\Common\Cache\MemcachedCache
              */
 //            (new \Doctrine\Common\Cache\MemcachedCache)->save();
             $cache->save('page#'.$page['id'],$page);
-            $cache->save('config',$this->config);
+            $cache->save('categories',$categories);
+            $cache->save('tags',$tags);
+
 /*  это позже
             foreach ($page['categories'] as $tmp) {
                 //  два действия сразу
