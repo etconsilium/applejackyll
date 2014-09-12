@@ -38,7 +38,7 @@ class StartCommand extends Command
 //        $config = $input->getArgument('config');
 //        $homedir = $input->getArgument('homedir');
 
-        (new \Applejackyll\Applejackyll( $input->getArgument('config') ));//->parse();
+        (new \Applejackyll\Applejackyll( $input->getArgument('config') ))->parse();
     }
 }
 class ClearcacheCommand extends Command

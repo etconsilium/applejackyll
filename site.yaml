@@ -41,15 +41,13 @@ tags: []
 
 # http://jekyllrb.com/docs/configuration/
 
-#	script_root
+#	document_root
 root:
 
 #Site Source
-#Change the directory where Jekyll will read files
 source:      _posts
 
 #Site Destination
-#Change the directory where Jekyll will write files
 destination: _site
 
 temp:     _cache
@@ -75,14 +73,25 @@ encoding: 'UTF-8'
 
 # Set defaults for YAML Front Matter variables.
 # Let’s say that you want to add a default layout to all pages and posts in your site. You would add this to your _config.yml file:
+# do not change please
 defaults:
-  -
-    scope:
-      path: "projects"
-      type: "pages"
-    values:
-      layout: "project" # overrides previous default layout
-      author: "VS"
+  scope:
+    path: "projects"
+    type: "pages"
+  values:
+    author: ''
+    layout: 'post'
+    id: null
+    date: null
+    title: ''
+    content: ''
+    permalink: null
+    path: null
+    previous: null
+    next: null
+    published: true
+    categories: []
+    tags: []
 
 
 
@@ -135,13 +144,33 @@ transliteration:  false
 
 cache:
 # doctrine's adapters
-  memcached:
-    adapter: Memcached
-    persistent: false
-    servers: [      ['localhost',11211,50]    ]
+#  memory:
+#    adapter:
+#      name: memory  # virtual adapter extends ArrayCache
+#      max_size: 5000000   # bytes, approx
+#    priority:   # usn't. hardcoded
+#      save: first
+#      delete: last
+#      fetch:  first
+#      precheck: always
+  memcached:   # <-- uniq id
+    adapter:
+      name: Memcached   # <-- adapter's name
+      persistent: false
+      servers: [      ['localhost',11211,50]    ]
+    priority:
+      save:   100   # last
+      delete: 10
+      fetch:  10    # first
+      precheck: true  # auto contains()
   filesystem:
-    adapter: Filesystem
-    dir:  ''
+    adapter:
+      name: Filesystem
+      dir:  ''
+    priority:
+      fetch:  100
+      save:   10
+      delete: 10
 
 
 
