@@ -220,9 +220,9 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 class Applejackyll extends \stdClass{
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
-    protected $_ids, $_categories, $_tags;
+    protected $_ids, $_categories, $_tags, $_urls;
     protected $_cache;
-    private $_page=[
+    protected $_page=[
 //                    'layout'=>'post'
 //                    ,'id'=>null
 //                    ,'date'=>null
@@ -276,7 +276,7 @@ class Applejackyll extends \stdClass{
 
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
         $this->_cache=new CacheSpooler($site['cache'], $site['root'].DIRECTORY_SEPARATOR.$site['temp']);
-        $categories=[]; $tags=[]; $ids=[];
+
         /**
          * @var $file \SplFileInfo
          */
@@ -321,28 +321,36 @@ class Applejackyll extends \stdClass{
             $page=array_replace_recursive($page,Yaml::parse(array_shift($ar)));
             $page['content']=trim(implode('---',$ar));
         }
-        //  заполняем переменные
+        //
 
-        $page['hash']=sha1_file($realpath);
-
-        $relative_path=$file->getRelativePath();
-        $this->_ids[]=$page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').($file->getBasename('.'.$file->getExtension()));
-
+        $page['hash']=sha1($realpath.md5_file($realpath)); //  надо было ююид всандалить и забыть
         $page['type']=strtolower($file->getExtension());
 
+        $relative_path=$file->getRelativePath();
+        //  хардкод с путём, как датой
         if (empty($page['date'])) {
             !($page['date']=strtotime($relative_path)) && $page['date']=$file->getMTime();
         }
+
+        $page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').($file->getBasename('.'.$file->getExtension()));
+        $this->_ids[$page['date'].microtime(1)]=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').($file->getBasename('.'.$file->getExtension()));
 //            $page['permalink']=
         $page['url']=$this->site['baseurl']
-            .(!empty($relative_path)?$relative_path.'/':'')
+            .(date('Y/m/d/',$page['date']))
             .($file->getBasename($file->getExtension())).'html';    //  hardcode
+
+        if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
+            $page['url']=$this->site['baseurl']
+                .(date('Y/m/d/',$page['date']))
+                .($file->getBasename('.'.$file->getExtension())).'-'.$page['hash'].'.html';    //  hardcode
+        else
+            $this->_urls[]=$page['url'];
                                                                                                                                                                         if (!empty($site['transliteration'])) $page['url']=\Behat\Transliterator\Transliterator::urlize($page['url']);
 
         $page['path']=$realpath;  //  raw
         //
-        if (!empty($page['category'])) $page['categories'][]=$page['category'];
-        if (!empty($page['tag'])) $page['tags'][]=$page['tag'];
+        if (!empty($page['category'])) is_array($page['category'])?$page['categories']=array_merge($page['categories'],$page['category']):$page['categories'][]=$page['category'];
+        if (!empty($page['tag'])) is_array($page['tag'])?$page['tags']=array_merge($page['tags'],$page['tag']):$page['tags'][]=$page['tag'];
 
         foreach ($page['categories'] as $i) {
             $this->_categories[$i][]=$page['id'];
@@ -363,10 +371,15 @@ class Applejackyll extends \stdClass{
         $categories=$cache->fetch('$categories');
         $tags=$cache->fetch('$tags');
         $posts=$ids=$cache->fetch('$ids');
-        array_reverse($posts);
+        krsort($posts);
+        $site['categories']=$categories;
+        $site['tags']=$tags;
+        $site['posts']=$posts;  //  A reverse chronological list of all Posts. i do not know that it will contains
+//        $site['pages']=$pages;  //  A list of all Pages. i do know that php havent resources for _all_ pages
         var_dump($posts);
-        foreach ($ids as $id) {
-
+        foreach ($posts as $id) {
+            $page=$cache->fetch('page#'.$id);
+            var_dump($page['url'],$page['hash']); print PHP_EOL;
         }
     }
 
