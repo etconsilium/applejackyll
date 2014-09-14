@@ -219,6 +219,8 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
+    CONST VERSION='1.14.17';
+
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
     protected $_ids=[];
     protected $_categories=[];
@@ -226,18 +228,7 @@ class Applejackyll extends \stdClass{
     protected $_urls=[];
     protected $_cache;
     protected $_page=[
-//                    'layout'=>'post'
-//                    ,'id'=>null
-//                    ,'date'=>null
-//                    ,'title'=>''
-//                    ,'content'=>''
-//                    ,'permalink'=>null
-//                    ,'path'=>null
-//                    ,'previous'=>null
-//                    ,'next'=>null
-//                    ,'published'=>true
-//                    ,'categories'=>[]
-//                    ,'tags'=>[]
+        //  _consig.yaml:defaults
                    ];
 
     public function __construct($config=null){
@@ -246,7 +237,7 @@ class Applejackyll extends \stdClass{
     /**
      * Parser initialization
      *
-     * @param string Filename (or data-array)
+     * @param string $configfile
      * @return $this
      */
     public function init($configfile){
@@ -346,11 +337,10 @@ class Applejackyll extends \stdClass{
 //            $page['permalink']=
         $page['url']=$this->site['baseurl']
             .$page['date']->format('Y/m/d/')
-            .(!empty($this->site['transliteration'])
-                ?\URLify::filter($page['title'],128,'',true)
-                :$page['title']
-                )
-            .'.html';    //  hardcode
+            .$page['title'].'.html';    //  hardcode
+
+        if (!empty($this->site['transliteration']))
+            $page['url']=$this->urlify($page['url']);
 
         if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
             $page['url']=str_replace('.html','-'.substr(uniqid(),5).'.html',$page['url']);    //  hardcode
@@ -368,7 +358,7 @@ class Applejackyll extends \stdClass{
         foreach ($page['tags'] as $i) {
             $this->_tags[$i][]=$page['id'];
         }
-var_dump($page);
+//var_dump($page);
         /**
          * @var $this->_cache CacheSpooler
          */
@@ -397,33 +387,24 @@ var_dump($page);
 
     }
 
-    /**
-     * @param \SplFileInfo $file
-     * @return timestamp
-     */
-    protected function get_date_from_path($file){
-        $pattern='*(?<year>(?:\d{4}))[/\\ \- .](?<month>\d{2})[/\\ \- .](?<day>\d{2})*';
-        $a=[];
+    protected function plain_array_to_hierarchic($arr){
 
-        //  v1
-        $p=$file->getBasename();
-        preg_match_all($pattern,$p,$a,PREG_SET_ORDER);
-        $a=array_shift($a);
+        return $a;
+    }
 
-        //  v2
-        if (empty($a)){
-            $p=$file->getRelativePath();
-            preg_match_all($pattern,$p,$a,PREG_SET_ORDER);
-            $a=array_shift($a);
-        }
 
-        if (empty($a)) return null;
 
-        $d=date_create_from_format('Y-m-d H:i:s e',"{$a['year']}-{$a['month']}-{$a['day']} 00:00:00 ".date_default_timezone_get());
-
-        if (! is_subclass_of($d,'\DateTime'))
-            return false;
-        return $d;
+    public function urlify($text){
+        $text=\URLify::transliterate($text);
+        // remove all these words from the string before urlifying
+        $remove_pattern = '~[^-.\w\s/]~u';
+        $text = preg_replace ($remove_pattern, '', $text);
+        $text = str_replace ('_', ' ', $text);
+        $text = preg_replace ('~^\s+|\s+$~', '', $text);
+        $text = preg_replace ('~\s{2,}~', ' ', $text);
+        $text = preg_replace ('~[-\s]+~', '-', $text);
+        $text = strtolower(trim($text, '-'));
+        return $text;
     }
 
     /**
