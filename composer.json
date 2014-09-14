@@ -15,7 +15,7 @@
         "symfony/yaml": "dev-master",
         "doctrine/cache": "dev-master",
 
-        "behat/transliterator": "*",
+        "jbroadway/urlify": "*",
         "twig/twig": "*",
         "aptoma/twig-markdown": "*",
         "michelf/php-markdown": "*",

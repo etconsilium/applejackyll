@@ -220,7 +220,10 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 class Applejackyll extends \stdClass{
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
-    protected $_ids, $_categories, $_tags, $_urls;
+    protected $_ids=[];
+    protected $_categories=[];
+    protected $_tags=[];
+    protected $_urls=[];
     protected $_cache;
     protected $_page=[
 //                    'layout'=>'post'
@@ -308,44 +311,51 @@ class Applejackyll extends \stdClass{
 
         $page=$this->site['defaults']['values'];
         $realpath=$file->getRealPath();
-        $ar=explode('---',trim(file_get_contents($realpath)));
+        $ar=explode('---',trim(file_get_contents($realpath)),2);
 
         if (1===count($ar)) {
             $page['content']=trim($ar[0]);
         }
-        elseif (2===count($ar)) {
+        else {
             $page=array_replace_recursive($page,Yaml::parse($ar[0]));
             $page['content']=trim($ar[1]);
         }
-        elseif (2<count($ar)) {
-            $page=array_replace_recursive($page,Yaml::parse(array_shift($ar)));
-            $page['content']=trim(implode('---',$ar));
-        }
-        //
 
-        $page['hash']=sha1($realpath.md5_file($realpath)); //  надо было ююид всандалить и забыть
+        $page['hash']=sha1($realpath.md5_file($realpath));
         $page['type']=strtolower($file->getExtension());
 
         $relative_path=$file->getRelativePath();
+
         //  хардкод с путём, как датой
         if (empty($page['date'])) {
-            !($page['date']=strtotime($relative_path)) && $page['date']=$file->getMTime();
-        }
+            $pattern='*(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})*';
+            $a=[];
 
-        $page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').($file->getBasename('.'.$file->getExtension()));
-        $this->_ids[$page['date'].microtime(1)]=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').($file->getBasename('.'.$file->getExtension()));
+            $p=$file->getBasename();
+            preg_match_all($pattern,$p,$a,PREG_SET_ORDER);
+            $a=array_shift($a);
+            if (is_array($a))
+                $page['date']=$a[0];
+            else
+                $page['date']=date('Y-m-d',$file->getMTime());
+        }
+        $page['date']=new \DateTime($page['date']);
+
+        $this->_ids[]=$page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').($file->getBasename('.'.$file->getExtension()));
+        if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
 //            $page['permalink']=
         $page['url']=$this->site['baseurl']
-            .(date('Y/m/d/',$page['date']))
-            .($file->getBasename($file->getExtension())).'html';    //  hardcode
+            .$page['date']->format('Y/m/d/')
+            .(!empty($this->site['transliteration'])
+                ?\URLify::filter($page['title'],128,'',true)
+                :$page['title']
+                )
+            .'.html';    //  hardcode
 
         if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
-            $page['url']=$this->site['baseurl']
-                .(date('Y/m/d/',$page['date']))
-                .($file->getBasename('.'.$file->getExtension())).'-'.$page['hash'].'.html';    //  hardcode
-        else
-            $this->_urls[]=$page['url'];
-                                                                                                                                                                        if (!empty($site['transliteration'])) $page['url']=\Behat\Transliterator\Transliterator::urlize($page['url']);
+            $page['url']=str_replace('.html','-'.substr(uniqid(),5).'.html',$page['url']);    //  hardcode
+
+        $this->_urls[]=$page['url'];
 
         $page['path']=$realpath;  //  raw
         //
@@ -358,7 +368,7 @@ class Applejackyll extends \stdClass{
         foreach ($page['tags'] as $i) {
             $this->_tags[$i][]=$page['id'];
         }
-
+var_dump($page);
         /**
          * @var $this->_cache CacheSpooler
          */
@@ -388,6 +398,35 @@ class Applejackyll extends \stdClass{
     }
 
     /**
+     * @param \SplFileInfo $file
+     * @return timestamp
+     */
+    protected function get_date_from_path($file){
+        $pattern='*(?<year>(?:\d{4}))[/\\ \- .](?<month>\d{2})[/\\ \- .](?<day>\d{2})*';
+        $a=[];
+
+        //  v1
+        $p=$file->getBasename();
+        preg_match_all($pattern,$p,$a,PREG_SET_ORDER);
+        $a=array_shift($a);
+
+        //  v2
+        if (empty($a)){
+            $p=$file->getRelativePath();
+            preg_match_all($pattern,$p,$a,PREG_SET_ORDER);
+            $a=array_shift($a);
+        }
+
+        if (empty($a)) return null;
+
+        $d=date_create_from_format('Y-m-d H:i:s e',"{$a['year']}-{$a['month']}-{$a['day']} 00:00:00 ".date_default_timezone_get());
+
+        if (! is_subclass_of($d,'\DateTime'))
+            return false;
+        return $d;
+    }
+
+    /**
      *
      *
      * @param string $data pagers data
@@ -395,7 +434,7 @@ class Applejackyll extends \stdClass{
      */
     public function parse($data=null){
         $this->phase1_analyze();
-        $this->phase2_synthesis();
+//        $this->phase3_synthesis();
 //        $filesystem=new Filesystem();
 //        $tmp_path=$site['root'].DIRECTORY_SEPARATOR.$site['temp'].DIRECTORY_SEPARATOR;
         die;
