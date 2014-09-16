@@ -64,7 +64,10 @@ class ClearcacheCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $date_before = $input->getArgument('before');
-        $date_after = $input->getArgument('after');
+        c = $input->getArgument('after');
+        if (is_null($date_before) && is_null($date_before)) {
+            (new \Applejackyll\Applejackyll())->clear_cache();
+        }
     }
 }
 

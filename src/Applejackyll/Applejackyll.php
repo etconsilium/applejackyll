@@ -124,7 +124,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      *
      * @return mixed The cached data or FALSE, if no cache entry exists for the given id.
      */
-    function fetch($id) {
+    function fetch($id){
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
          */
@@ -158,7 +158,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      *
      * @return boolean TRUE if a cache entry exists for the given cache id, FALSE otherwise.
      */
-    function contains($id) {
+    function contains($id){
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
          */
@@ -178,7 +178,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      *
      * @return boolean TRUE if the entry was successfully stored in the cache, FALSE otherwise.
      */
-    function save($id, $data, $lifeTime = 0) {
+    function save($id, $data, $lifeTime = 0){
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
          */
@@ -194,7 +194,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      *
      * @return boolean TRUE if the cache entry was successfully deleted, FALSE otherwise.
      */
-    function delete($id) {
+    function delete($id){
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
          */
@@ -203,7 +203,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
         }
     }
 
-    function getStats() {
+    function getStats(){
         $stat=[];
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
@@ -214,6 +214,19 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
         return $stat;
     }
 
+    function flush($id=null){
+        if (array_key_exists($id,$this->_spool)) {
+            $this->_spool[$id]->flush();
+            return;
+        }
+        /**
+         * @var $adapter \Doctrine\Common\Cache\Cache
+         */
+        foreach ($this->_priority['delete'] as $adapter_id => $adapter) {
+            $adapter->flush();
+        }
+        return;
+    }
 }
 
 
@@ -243,16 +256,20 @@ class Applejackyll extends \stdClass{
     public function init($configfile){
         $this->site=\Symfony\Component\Yaml\Yaml::parse( file_get_contents($configfile) );
         $this->site=new \ArrayObject($this->site,\ArrayObject::ARRAY_AS_PROPS);
+
+        $site=&$this->site;
+        $site['time']=TIMESTART;
+        if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
+        if (empty($site['root'])) $site['root']=getcwd();
+        if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
+        $this->_cache=new CacheSpooler($site['cache'], $site['root'].DIRECTORY_SEPARATOR.$site['temp']);
+
+        return $this;
     }
 
     protected function phase1_analyze(){
 
         $site=&$this->site;
-        $site['time']=TIMESTART;
-
-        if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
-
-        if (empty($site['root'])) $site['root']=getcwd();
         $source_dir=$site['root'].DIRECTORY_SEPARATOR.$site['source'];
 
         $finder=(new Finder)->files();
@@ -267,9 +284,6 @@ class Applejackyll extends \stdClass{
             ->ignoreUnreadableDirs(1)
             ->sortByName()
         ;
-
-        if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
-        $this->_cache=new CacheSpooler($site['cache'], $site['root'].DIRECTORY_SEPARATOR.$site['temp']);
 
         /**
          * @var $file \SplFileInfo
@@ -318,7 +332,10 @@ class Applejackyll extends \stdClass{
         $relative_path=$file->getRelativePath();
 
         //  хардкод с путём, как датой
-        if (empty($page['date'])) {
+        if (!empty($page['date']) && !strtotime($page['date'])) {
+            trigger_error("Invalid date format `{$page['date']}` in file `{$realpath}`",E_USER_NOTICE);
+        }
+        elseif (empty($page['date'])) {
             $pattern='*(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})*';
             $a=[];
 
@@ -328,12 +345,12 @@ class Applejackyll extends \stdClass{
             if (is_array($a))
                 $page['date']=$a[0];
             else
-                $page['date']=date('Y-m-d',$file->getMTime());
+                $page['date']=date('Y-m-d H:i:s',$file->getMTime());
         }
         $page['date']=new \DateTime($page['date']);
 
-        $this->_ids[]=$page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').($file->getBasename('.'.$file->getExtension()));
         if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
+        $this->_ids[]=$page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').$page['title'];
 //            $page['permalink']=
         $page['url']=$this->site['baseurl']
             .$page['date']->format('Y/m/d/')
@@ -350,6 +367,7 @@ class Applejackyll extends \stdClass{
         $page['path']=$realpath;  //  raw
         //
         if (!empty($page['category'])) is_array($page['category'])?$page['categories']=array_merge($page['categories'],$page['category']):$page['categories'][]=$page['category'];
+        if (!empty($this->site['categiries_path'])) $page['categories']=array_merge($page['categories'],explode(DIRECTORY_SEPARATOR,$relative_path));
         if (!empty($page['tag'])) is_array($page['tag'])?$page['tags']=array_merge($page['tags'],$page['tag']):$page['tags'][]=$page['tag'];
 
         foreach ($page['categories'] as $i) {
@@ -358,11 +376,12 @@ class Applejackyll extends \stdClass{
         foreach ($page['tags'] as $i) {
             $this->_tags[$i][]=$page['id'];
         }
-//var_dump($page);
         /**
          * @var $this->_cache CacheSpooler
          */
         $this->_cache->save('page#'.$page['id'],$page);
+
+        return $this;
     }
 
     protected function phase2_synthesis(){
@@ -387,33 +406,19 @@ class Applejackyll extends \stdClass{
 
     }
 
-    protected function plain_array_to_hierarchic($arr){
 
-        return $a;
-    }
-
-
-
-    public function urlify($text){
-        $text=\URLify::transliterate($text);
-        // remove all these words from the string before urlifying
-        $remove_pattern = '~[^-.\w\s/]~u';
-        $text = preg_replace ($remove_pattern, '', $text);
-        $text = str_replace ('_', ' ', $text);
-        $text = preg_replace ('~^\s+|\s+$~', '', $text);
-        $text = preg_replace ('~\s{2,}~', ' ', $text);
-        $text = preg_replace ('~[-\s]+~', '-', $text);
-        $text = strtolower(trim($text, '-'));
-        return $text;
+    public function clear_cache($cache_id = null)
+    {
+        $this->_cache->flush($cache_id);
+        return $this;
     }
 
     /**
-     *
-     *
      * @param string $data pagers data
      * @return $this
      */
     public function parse($data=null){
+        $this->clear_cache();
         $this->phase1_analyze();
 //        $this->phase3_synthesis();
 //        $filesystem=new Filesystem();
@@ -437,6 +442,19 @@ class Applejackyll extends \stdClass{
                 file_put_contents($fn,$t,LOCK_EX);  //  не зачем напрягать фреймворки
             }
         return $this;
+    }
+
+    public function urlify($url){
+        $url=\URLify::transliterate($url);
+        // remove all these words from the string before urlifying
+        $remove_pattern = '~[^-.\w\s/?&+]~u';
+        $url = preg_replace ($remove_pattern, '', $url);
+        $url = str_replace ('_', ' ', $url);
+        $url = preg_replace ('~^\s+|\s+$~', '', $url);
+//        $url = preg_replace ('~\s{2,}~', ' ', $url);
+        $url = preg_replace ('~[-\s]+~', '-', $url);
+        $url = strtolower(trim($url, '-'));
+        return $url;
     }
 
 }

@@ -140,7 +140,7 @@ relative_permalinks: false
 permalink:     'Y/m/d/title'
 paginate_path: 'page:num'
 transliteration:  true
-
+categiries_path:  false # convert/and/add/relative/path/to/categories
 
 cache:
 # doctrine's adapters
