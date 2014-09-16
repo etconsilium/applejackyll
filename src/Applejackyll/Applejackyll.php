@@ -32,7 +32,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
     function __construct($cache_list=null, $default_temp=null) {
         $this->_mem_start=memory_get_usage();
-        is_array($cache_list) && $this->init($cache_list, $default_temp=null);
+        is_array($cache_list) && $this->init($cache_list, $default_temp);
         return $this;
     }
 
@@ -40,7 +40,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
         //  второй параметр злой хардкод
         $this->_tmpdir = empty($default_temp) ? sys_get_temp_dir().DIRECTORY_SEPARATOR.APP_ID : $default_temp ;
         foreach ($configs as $id=>$c) {
-            $prt=$c['priority'];
+            $prt=array_merge(['save'=>50,'delete'=>50,'fetch'=>50,'precheck'=>false],(!empty($c['priority'])?$c['priority']:[]));
             $cache=$c['adapter'];
             switch (strtolower($cache['name'])) :
                 case 'apc':
@@ -102,17 +102,32 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
                     die;
             endswitch;
 
-            if (!empty($prt['save'])) $this->_priority['save'][$prt['save']]=&$this->_spool[$id];
-            else $this->_priority['save'][]=&$this->_spool[$id];
-            if (!empty($prt['delete'])) $this->_priority['delete'][$prt['delete']]=&$this->_spool[$id];
-            else $this->_priority['delete'][]=&$this->_spool[$id];
-            if (!empty($prt['fetch'])) $this->_priority['fetch'][$prt['fetch']]=&$this->_spool[$id];
-            else $this->_priority['fetch'][]=&$this->_spool[$id];
-            if (!empty($prt['precheck'])) $this->_priority['precheck'][]=$id;
+            $this->_priority['save'][$id]=$prt['save'];
+            $this->_priority['delete'][$id]=$prt['delete'];
+            $this->_priority['fetch'][$id]=$prt['fetch'];
+            $this->_priority['precheck'][$id]=$prt['precheck'];
+
+//            if (!empty($prt['save'])) $this->_priority['save'][$id]=$prt['save'];   //  =&$this->_spool[$id];
+//            else $this->_priority['save'][]=&$this->_spool[$id];
+//            if (!empty($prt['delete'])) $this->_priority['delete'][$prt['delete']]=&$this->_spool[$id];
+//            else $this->_priority['delete'][]=&$this->_spool[$id];
+//            if (!empty($prt['fetch'])) $this->_priority['fetch'][$prt['fetch']]=&$this->_spool[$id];
+//            else $this->_priority['fetch'][]=&$this->_spool[$id];
+//            if (!empty($prt['precheck'])) $this->_priority['precheck'][]=$id;
         }
-        ksort($this->_priority['save']);
-        ksort($this->_priority['delete']);
-        ksort($this->_priority['fetch']);
+//        ksort($this->_priority['save']);
+//        ksort($this->_priority['delete']);
+//        ksort($this->_priority['fetch']);
+
+        asort($this->_priority['save']);
+        asort($this->_priority['delete']);
+        asort($this->_priority['fetch']);
+        $this->_priority['precheck']=array_filter($this->_priority['precheck']);
+
+        $this->_priority['save']=array_keys($this->_priority['save']);
+        $this->_priority['delete']=array_keys($this->_priority['delete']);
+        $this->_priority['fetch']=array_keys($this->_priority['fetch']);
+        $this->_priority['precheck']=array_keys($this->_priority['precheck']);
 
         return $this;
     }
@@ -125,23 +140,27 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      * @return mixed The cached data or FALSE, if no cache entry exists for the given id.
      */
     function fetch($id){
+        $tmp=[]; $data=null;
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
          */
-        foreach ($this->_priority['fetch'] as $adapter_id => $adapter) {
-            $tmp=[];
+        foreach ($this->_priority['fetch'] as $adapter_id) {
+            $adapter=&$this->_spool[$adapter_id];
             if (array_key_exists($adapter_id, $this->_priority['precheck'])) {
                 if (!$adapter->contains($id)) {
                     $tmp[]=$adapter;
                     continue;
                 }
                 else {
+                    $data=$adapter->fetch($id);
                     break;
                 }
             }
-            break;
+            else {
+                $data=$adapter->fetch($id);
+                break;
+            }
         }
-        $data=$adapter->fetch($id);
         if (!empty($tmp)) {
             array_reverse($tmp);
             foreach ($tmp as $adapter) {
@@ -160,10 +179,10 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      */
     function contains($id){
         /**
-         * @var $adapter \Doctrine\Common\Cache\Cache
+         * @var $this->_spool[$adapter_id] \Doctrine\Common\Cache\Cache
          */
-        foreach ($this->_priority['fetch'] as $adapter) {
-            if ($adapter->contains($id)) return true;
+        foreach ($this->_priority['fetch'] as $adapter_id) {
+            if ($this->_spool[$adapter_id]->contains($id)) return true;
         }
         return false;
     }
@@ -175,15 +194,14 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      * @param mixed  $data     The cache entry/data.
      * @param int    $lifeTime The cache lifetime.
      *                         If != 0, sets a specific lifetime for this cache entry (0 => infinite lifeTime).
-     *
      * @return boolean TRUE if the entry was successfully stored in the cache, FALSE otherwise.
      */
     function save($id, $data, $lifeTime = 0){
         /**
-         * @var $adapter \Doctrine\Common\Cache\Cache
+         * @var $this->_spool[$adapter_id] \Doctrine\Common\Cache\Cache
          */
-        foreach ($this->_priority['save'] as $adapter) {
-            $adapter->save($id, $data, $lifeTime);
+        foreach ($this->_priority['save'] as $adapter_id) {
+            $this->_spool[$adapter_id]->save($id, $data, $lifeTime);
         }
     }
 
@@ -196,34 +214,35 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
      */
     function delete($id){
         /**
-         * @var $adapter \Doctrine\Common\Cache\Cache
+         * @var $this->_spool[$adapter_id] \Doctrine\Common\Cache\Cache
          */
-        foreach ($this->_priority['delete'] as $adapter) {
-            $adapter->delete($id);
+        foreach ($this->_priority['delete'] as $adapter_id) {
+            $this->_spool[$adapter_id]->delete($id);
         }
     }
 
     function getStats(){
         $stat=[];
         /**
-         * @var $adapter \Doctrine\Common\Cache\Cache
+         * @var $this->_spool[$adapter_id] \Doctrine\Common\Cache\Cache
          */
-        foreach ($this->_priority['fetch'] as $adapter_id => $adapter) {
-            $stat[$adapter_id]=$adapter->getStats();
+        foreach ($this->_priority['fetch'] as $adapter_id) {
+            $stat[$adapter_id]=$this->_spool[$adapter_id]->getStats();
         }
         return $stat;
     }
 
-    function flush($id=null){
+    function flushAll($id=null){
         if (array_key_exists($id,$this->_spool)) {
-            $this->_spool[$id]->flush();
+            $this->_spool[$id]->flushAll();
             return;
         }
+//        var_dump($this->_priority['delete']);
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
          */
-        foreach ($this->_priority['delete'] as $adapter_id => $adapter) {
-            $adapter->flush();
+        foreach ($this->_priority['delete'] as $adapter_id) {
+            $this->_spool[$adapter_id]->flushAll();
         }
         return;
     }
@@ -232,7 +251,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.14.17';
+    CONST VERSION='1.16.18';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
     protected $_ids=[];
@@ -241,11 +260,28 @@ class Applejackyll extends \stdClass{
     protected $_urls=[];
     protected $_cache;
     protected $_page=[
-        //  _consig.yaml:defaults
+        //  _config.yaml:defaults
                    ];
 
     public function __construct($config=null){
-        is_string($config) && $this->init($config);
+        if (is_string($config)) {
+            $this->init($config);
+        }
+        else {
+            //  try search
+            $finder=(new Finder)->files();
+            $files=$finder
+                ->name('site.yaml')
+                ->useBestAdapter()
+                ->in(getcwd())
+                ->ignoreDotFiles(1)
+                ->ignoreVCS(1)
+                ->ignoreUnreadableDirs(1)
+            ;
+            foreach ($files as $file) {$configname=$file->getRealPath();break;}
+            $this->init($configname);
+        }
+        return $this;
     }
     /**
      * Parser initialization
@@ -311,6 +347,7 @@ class Applejackyll extends \stdClass{
 
     /**
      * @param $file \SplFileInfo
+     * @return $this
      */
     protected function phase1_file_prepare($file){
 
@@ -407,9 +444,30 @@ class Applejackyll extends \stdClass{
     }
 
 
-    public function clear_cache($cache_id = null)
-    {
-        $this->_cache->flush($cache_id);
+    public function clearCache($cache_id = null){
+        $this->_cache->flushAll($cache_id);
+        return $this;
+    }
+
+    /**
+     * @param \DateTime $after
+     * @param \DateTime $before
+     * @throws \ErrorException
+     * @return $this
+     */
+    public function deleteByDate($after,$before){
+        /**
+         * @var {$this->_cache} CacheSpooler
+         */
+        if (!$this->_cache->contains('$ids'))
+            throw new \ErrorException('Cache not ready. Maybe clear?');
+
+        $ids=$this->_cache->fetch('$ids');
+        foreach ($ids as $id) {
+            $page=$this->_cache->fetch($pid='page#'.$id);
+            if ($page['date']>$after || $page['date']<$before)
+                $this->_cache->delete($pid);
+        }
         return $this;
     }
 
@@ -418,7 +476,7 @@ class Applejackyll extends \stdClass{
      * @return $this
      */
     public function parse($data=null){
-        $this->clear_cache();
+        $this->clearCache();
         $this->phase1_analyze();
 //        $this->phase3_synthesis();
 //        $filesystem=new Filesystem();

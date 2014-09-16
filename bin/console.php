@@ -48,25 +48,29 @@ class ClearcacheCommand extends Command
         $this
             ->setName('clearcache')
             ->setDescription('Clear all caches')
-            ->addArgument(
-                'after'
-                ,InputArgument::OPTIONAL
+            ->addOption('after','a'
+                ,InputOption::VALUE_OPTIONAL
                 ,'Clear cache for pages after `date`'
+                ,null
             )
-            ->addArgument(
-                'before'
-                ,InputArgument::OPTIONAL
+            ->addOption(
+                'before','b'
+                ,InputOption::VALUE_OPTIONAL
                 ,'Clear cache for pages before `date`'
+                ,null
             )
         ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $date_before = $input->getArgument('before');
-        c = $input->getArgument('after');
-        if (is_null($date_before) && is_null($date_before)) {
-            (new \Applejackyll\Applejackyll())->clear_cache();
+        $date_after = $input->getOption('after');
+        $date_before = $input->getOption('before');
+        if (is_null($date_before) && is_null($date_after)) {
+            (new \Applejackyll\Applejackyll())->clearCache();
+        }
+        else {
+            (new \Applejackyll\Applejackyll())->deleteByDate(new \DateTime($date_after),new \DateTime($date_before));
         }
     }
 }
