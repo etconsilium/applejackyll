@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ site.title ~ (page.title ? ' &middot; '~page.title : '') }}</title>
+</head>
+<body>
+{{ content }}
+========================================
+
+{{ page.content }}
+========================================
+
+{{ site.page.content }}
+========================================
+
+</body>
+</html>

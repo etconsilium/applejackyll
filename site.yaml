@@ -1,6 +1,8 @@
 #Default Configuration 
 # http://jekyllrb.com/docs/variables/
 
+title: 'Test project'
+
 time:
 # The current time (when you run)
 
@@ -48,7 +50,7 @@ root:
 source:      _posts
 
 #Site Destination
-destination: _site
+destination: /var/www/html
 
 temp:     _cache
 plugins:  _plugins

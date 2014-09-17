@@ -106,18 +106,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
             $this->_priority['delete'][$id]=$prt['delete'];
             $this->_priority['fetch'][$id]=$prt['fetch'];
             $this->_priority['precheck'][$id]=$prt['precheck'];
-
-//            if (!empty($prt['save'])) $this->_priority['save'][$id]=$prt['save'];   //  =&$this->_spool[$id];
-//            else $this->_priority['save'][]=&$this->_spool[$id];
-//            if (!empty($prt['delete'])) $this->_priority['delete'][$prt['delete']]=&$this->_spool[$id];
-//            else $this->_priority['delete'][]=&$this->_spool[$id];
-//            if (!empty($prt['fetch'])) $this->_priority['fetch'][$prt['fetch']]=&$this->_spool[$id];
-//            else $this->_priority['fetch'][]=&$this->_spool[$id];
-//            if (!empty($prt['precheck'])) $this->_priority['precheck'][]=$id;
         }
-//        ksort($this->_priority['save']);
-//        ksort($this->_priority['delete']);
-//        ksort($this->_priority['fetch']);
 
         asort($this->_priority['save']);
         asort($this->_priority['delete']);
@@ -251,7 +240,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.17.4';
+    CONST VERSION='1.17.11';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
     protected $_ids=[];
@@ -295,12 +284,24 @@ class Applejackyll extends \stdClass{
         $this->site=\Symfony\Component\Yaml\Yaml::parse( file_get_contents($configfile) );
         $this->site=new \ArrayObject($this->site,\ArrayObject::ARRAY_AS_PROPS);
 
+        $this->site['page']=$this->_page;
+
         $site=&$this->site;
+
         $site['time']=TIMESTART;
         if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
         if (empty($site['root'])) $site['root']=getcwd();
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
-        $this->_cache=new CacheSpooler($site['cache'], $site['root'].DIRECTORY_SEPARATOR.$site['temp']);
+        if (!is_dir($site['temp'])) {
+            $site['temp']=$site['root'].DIRECTORY_SEPARATOR.$site['temp'];
+            @mkdir($site['temp'],0777,1);
+        }
+        $this->_cache=new CacheSpooler($site['cache'], $site['temp']);
+
+        if (!is_dir($site['destination'])) {
+            $site['destination']=$site['root'].DIRECTORY_SEPARATOR.$site['destination'];
+            @mkdir($site['destination'],0755,1);
+        }
 
         return $this;
     }
@@ -439,32 +440,42 @@ class Applejackyll extends \stdClass{
             $page=$cache->fetch('page#'.$id);
             $page['prev']=&$prev;
             if ($prev) $page['prev']['next']=&$page;
-            $this->phase2_page_parse($page);
+
+//            $site['html_pages'][$id]=$this->phase2_page_parse($page);
+            file_put_contents($site['destination'].$page['url']
+                ,$this->phase2_page_parse($page), LOCK_EX);
+
             $prev=$page;
         }
     }
 
     protected function phase2_page_parse($page){
-        $site=$this->site;
+        $site=&$this->site;
+        $this->_page=&$page;
+
         \Twig_Autoloader::register();
         $twig=new \Twig_Environment(new \Twig_Loader_Filesystem($site['root'].DIRECTORY_SEPARATOR.$site['layouts'])
-            ,['cache'=>$site['root'].DIRECTORY_SEPARATOR.$site['temp'], 'auto_reload'=>true]);
-        // Uses dflydev\markdown engine
-        //$engine = new MarkdownEngine\DflydevMarkdownEngine();
+            ,['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
 
-        // Uses Michelf\Markdown engine (if you prefer)
         $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
+        $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
+        $parser->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
 
-        $twig->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
-
-        @mkdir(dirname($site['root'].DIRECTORY_SEPARATOR.$site['destination'].$page['url']),0755,1);
         if ('md'===$page['type']){
-            $page['content']=$content='{% markdown %}'.$page['content'].'{% endmarkdown %}';
-            $t=$twig->render($page['layout'].'.twig', array('site'=>$site,'page'=>$page, 'content'=>$content));
-            file_put_contents($site['root'].DIRECTORY_SEPARATOR.$site['destination'].$page['url']
-                ,$t,LOCK_EX);  //  не зачем напрягать фреймворки
+            $tmp_content=$page['content'];
+            $page['content']='{% markdown %}'.$page['content'].'{% endmarkdown %}';
+            $content=$twig->render($page['layout'].'.twig'
+                ,['site'=>$site, 'page'=>$page, 'content'=>$page['content']]
+            );
+            $page['content']=$tmp_content;
+
+            return $parser->render($content, ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
+
+//            file_put_contents($site['destination'].$page['url']
+//                ,$t,LOCK_EX);
+//            file_put_contents($site['destination'].DIRECTORY_SEPARATOR.microtime(1)
+//                ,$page['content'],LOCK_EX);
         }
-        return $this;
     }
 
     protected function phase3_additive(){
