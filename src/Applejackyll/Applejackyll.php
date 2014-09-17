@@ -251,10 +251,11 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.16.18';
+    CONST VERSION='1.17.4';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
     protected $_ids=[];
+    protected $_posts=[];
     protected $_categories=[];
     protected $_tags=[];
     protected $_urls=[];
@@ -281,6 +282,7 @@ class Applejackyll extends \stdClass{
             foreach ($files as $file) {$configname=$file->getRealPath();break;}
             $this->init($configname);
         }
+        $this->site['page']['content']=&$this->page['content'];
         return $this;
     }
     /**
@@ -330,7 +332,8 @@ class Applejackyll extends \stdClass{
         $this->_cache->save('$categories',$this->_categories);
         $this->_cache->save('$tags',$this->_tags);
         $this->_cache->save('$ids',$this->_ids);
-//var_dump($page);
+        arsort($this->_posts); $this->_posts=array_keys($this->_posts);
+        $this->_cache->save('$posts',$this->_posts);
 /*  это позже
             foreach ($page['categories'] as $tmp) {
                 //  два действия сразу
@@ -388,13 +391,11 @@ class Applejackyll extends \stdClass{
 
         if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
         $this->_ids[]=$page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').$page['title'];
+        $this->_posts[$page['id']]=$page['date']->getTimestamp();
 //            $page['permalink']=
         $page['url']=$this->site['baseurl']
             .$page['date']->format('Y/m/d/')
-            .$page['title'].'.html';    //  hardcode
-
-        if (!empty($this->site['transliteration']))
-            $page['url']=$this->urlify($page['url']);
+            .(!empty($this->site['transliteration']) ? \URLify::filter($page['title']) : $page['title']).'.html';    //  hardcode
 
         if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
             $page['url']=str_replace('.html','-'.substr(uniqid(),5).'.html',$page['url']);    //  hardcode
@@ -423,20 +424,47 @@ class Applejackyll extends \stdClass{
 
     protected function phase2_synthesis(){
         $site=$this->site;
-        $cache=new CacheSpooler($site['cache'], $site['root'].DIRECTORY_SEPARATOR.$site['temp']);
+        $cache=$this->_cache;
         $categories=$cache->fetch('$categories');
         $tags=$cache->fetch('$tags');
-        $posts=$ids=$cache->fetch('$ids');
-        krsort($posts);
+        $ids=$cache->fetch('$ids');
+        $posts=$cache->fetch('$posts');
         $site['categories']=$categories;
         $site['tags']=$tags;
         $site['posts']=$posts;  //  A reverse chronological list of all Posts. i do not know that it will contains
 //        $site['pages']=$pages;  //  A list of all Pages. i do know that php havent resources for _all_ pages
-        var_dump($posts);
+//        var_dump($ids,$posts);
+        $prev=null;$next=null;
         foreach ($posts as $id) {
             $page=$cache->fetch('page#'.$id);
-            var_dump($page['url'],$page['hash']); print PHP_EOL;
+            $page['prev']=&$prev;
+            if ($prev) $page['prev']['next']=&$page;
+            $this->phase2_page_parse($page);
+            $prev=$page;
         }
+    }
+
+    protected function phase2_page_parse($page){
+        $site=$this->site;
+        \Twig_Autoloader::register();
+        $twig=new \Twig_Environment(new \Twig_Loader_Filesystem($site['root'].DIRECTORY_SEPARATOR.$site['layouts'])
+            ,['cache'=>$site['root'].DIRECTORY_SEPARATOR.$site['temp'], 'auto_reload'=>true]);
+        // Uses dflydev\markdown engine
+        //$engine = new MarkdownEngine\DflydevMarkdownEngine();
+
+        // Uses Michelf\Markdown engine (if you prefer)
+        $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
+
+        $twig->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
+
+        @mkdir(dirname($site['root'].DIRECTORY_SEPARATOR.$site['destination'].$page['url']),0755,1);
+        if ('md'===$page['type']){
+            $page['content']=$content='{% markdown %}'.$page['content'].'{% endmarkdown %}';
+            $t=$twig->render($page['layout'].'.twig', array('site'=>$site,'page'=>$page, 'content'=>$content));
+            file_put_contents($site['root'].DIRECTORY_SEPARATOR.$site['destination'].$page['url']
+                ,$t,LOCK_EX);  //  не зачем напрягать фреймворки
+        }
+        return $this;
     }
 
     protected function phase3_additive(){
@@ -478,27 +506,10 @@ class Applejackyll extends \stdClass{
     public function parse($data=null){
         $this->clearCache();
         $this->phase1_analyze();
-//        $this->phase3_synthesis();
+        $this->phase2_synthesis();
 //        $filesystem=new Filesystem();
 //        $tmp_path=$site['root'].DIRECTORY_SEPARATOR.$site['temp'].DIRECTORY_SEPARATOR;
-        die;
-        \Twig_Autoloader::register();
-        $twig=new \Twig_Environment(new \Twig_Loader_String());
-        // Uses dflydev\markdown engine
-        //$engine = new MarkdownEngine\DflydevMarkdownEngine();
 
-        // Uses Michelf\Markdown engine (if you prefer)
-        $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
-
-        $twig->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
-
-        if (!empty($this->target))
-            foreach ($this->target as $fn) {
-                $a=spyc_load(file_get_contents($fn));   //  снова косяк с загрузкой из файла
-                $content=$a['content'];
-                $t=$twig->render('{% markdown %}'.$a['content'].'{% endmarkdown %}', array('site'=>$this->config['site'],'page'=>$a));
-                file_put_contents($fn,$t,LOCK_EX);  //  не зачем напрягать фреймворки
-            }
         return $this;
     }
 
