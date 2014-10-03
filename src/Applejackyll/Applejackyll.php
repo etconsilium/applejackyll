@@ -240,7 +240,8 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.17.11';
+    CONST VERSION='1.10.14';
+    CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
     protected $_ids=[];
@@ -253,35 +254,43 @@ class Applejackyll extends \stdClass{
         //  _config.yaml:defaults
                    ];
 
-    public function __construct($config=null){
-        if (is_string($config)) {
-            $this->init($config);
-        }
-        else {
-            //  try search
-            $finder=(new Finder)->files();
-            $files=$finder
-                ->name('site.yaml')
-                ->useBestAdapter()
-                ->in(getcwd())
-                ->ignoreDotFiles(1)
-                ->ignoreVCS(1)
-                ->ignoreUnreadableDirs(1)
-            ;
-            foreach ($files as $file) {$configname=$file->getRealPath();break;}
-            $this->init($configname);
+    public function __construct($configfile=null)
+    {
+        if (is_string($configfile)) {
+            $this->init($configfile);
         }
         $this->site['page']['content']=&$this->page['content'];
         return $this;
     }
+
     /**
      * Parser initialization
      *
      * @param string $configfile
      * @return $this
      */
-    public function init($configfile){
-        $this->site=\Symfony\Component\Yaml\Yaml::parse( file_get_contents($configfile) );
+    public function init($configfile)
+    {
+        if (!(is_string($configfile) && is_file($configfile) && is_readable($configfile))) {
+            //  try search
+            $finder=(new Finder)->files();
+            $files=$finder
+                ->name(self::CONFIG_FILENAME)
+                ->useBestAdapter()
+                ->in(getcwd())
+                ->ignoreDotFiles(1)
+                ->ignoreVCS(1)
+                ->ignoreUnreadableDirs(1)
+            ;
+            foreach ($files as $file) {$configfile=$file->getRealPath();break;}
+        }
+        try {
+            $c=file_get_contents($configfile);
+        } catch (\Exception $e) {
+            throw new \FileNotFoundException($e->getMessage()); die;
+        }
+
+        $this->site=\Symfony\Component\Yaml\Yaml::parse( $c ); unset($c);
         $this->site=new \ArrayObject($this->site,\ArrayObject::ARRAY_AS_PROPS);
 
         $this->site['page']=$this->_page;
@@ -306,8 +315,8 @@ class Applejackyll extends \stdClass{
         return $this;
     }
 
-    protected function phase1_analyze(){
-
+    protected function phase1_analyze()
+    {
         $site=&$this->site;
         $source_dir=$site['root'].DIRECTORY_SEPARATOR.$site['source'];
 
@@ -353,8 +362,8 @@ class Applejackyll extends \stdClass{
      * @param $file \SplFileInfo
      * @return $this
      */
-    protected function phase1_file_prepare($file){
-
+    protected function phase1_file_prepare($file)
+    {
         $page=$this->site['defaults']['values'];
         $realpath=$file->getRealPath();
         $ar=explode('---',trim(file_get_contents($realpath)),2);
@@ -423,7 +432,8 @@ class Applejackyll extends \stdClass{
         return $this;
     }
 
-    protected function phase2_synthesis(){
+    protected function phase2_synthesis()
+    {
         $site=$this->site;
         $cache=$this->_cache;
         $categories=$cache->fetch('$categories');
@@ -449,7 +459,8 @@ class Applejackyll extends \stdClass{
         }
     }
 
-    protected function phase2_page_parse($page){
+    protected function phase2_page_parse($page)
+    {
         $site=&$this->site;
         $this->_page=&$page;
 
@@ -478,12 +489,14 @@ class Applejackyll extends \stdClass{
         }
     }
 
-    protected function phase3_additive(){
+    protected function phase3_additive()
+    {
 
     }
 
 
-    public function clearCache($cache_id = null){
+    public function clearCache($cache_id = null)
+    {
         $this->_cache->flushAll($cache_id);
         return $this;
     }
@@ -494,7 +507,8 @@ class Applejackyll extends \stdClass{
      * @throws \ErrorException
      * @return $this
      */
-    public function deleteByDate($after,$before){
+    public function deleteByDate($after,$before)
+    {
         /**
          * @var {$this->_cache} CacheSpooler
          */
@@ -514,7 +528,8 @@ class Applejackyll extends \stdClass{
      * @param string $data pagers data
      * @return $this
      */
-    public function parse($data=null){
+    public function parse($data=null)
+    {
         $this->clearCache();
         $this->phase1_analyze();
         $this->phase2_synthesis();
@@ -524,7 +539,8 @@ class Applejackyll extends \stdClass{
         return $this;
     }
 
-    public function urlify($url){
+    public function urlify($url)
+    {
         $url=\URLify::transliterate($url);
         // remove all these words from the string before urlifying
         $remove_pattern = '~[^-.\w\s/?&+]~u';
@@ -538,3 +554,4 @@ class Applejackyll extends \stdClass{
     }
 
 }
+
