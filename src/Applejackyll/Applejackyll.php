@@ -555,3 +555,53 @@ class Applejackyll extends \stdClass{
 
 }
 
+
+class Server{
+    const COMMAND_LINE='php -S %s:%s -t %s >/dev/null 2>&1 & echo $!';
+    const STATUS_RUN='run';
+    const STATUS_EMPTY='empty';
+
+    private $_host, $_port, $_docroot, $_status;
+
+    private function _lock()
+    {
+
+    }
+
+    private function _process_id()
+    {
+
+    }
+
+    private function _command_string()
+    {
+        return sprintf(self::COMMAND_LINE,$this->_host,$this->_port,$this->_docroot);
+    }
+
+    public function set($host='127.0.0.1', $port=4040, $docroot='./')
+    {
+        $this->_host=$host; $this->_port=$port; $this->_docroot=$docroot;
+        return $this;
+    }
+
+    public function start()
+    {
+
+    }
+
+    public function status()
+    {
+
+    }
+
+
+    public function stop()
+    {
+
+    }
+
+    public function restart()
+    {
+
+    }
+}

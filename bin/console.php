@@ -19,18 +19,11 @@ class StartCommand extends Command
         $this
             ->setName('start')
             ->setDescription('Start site generation')
-            ->addArgument(
-                'config'
-                ,InputArgument::OPTIONAL
-                ,'Path to config file site.yaml'
-                ,'.'.DIRECTORY_SEPARATOR.'site.yaml'
+            ->addOption('config','c'
+                ,InputOption::VALUE_OPTIONAL
+                ,'Path to config file <site.yaml>'
+                ,getcwd().DIRECTORY_SEPARATOR.'site.yaml'
             )
-//            ->addArgument(
-//                'homedir'
-//                ,InputArgument::OPTIONAL
-//                ,'Site directory'
-//                ,getcwd().DIRECTORY_SEPARATOR.'site'
-//            )
         ;
     }
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -38,7 +31,65 @@ class StartCommand extends Command
 //        $config = $input->getArgument('config');
 //        $homedir = $input->getArgument('homedir');
 
-        (new \Applejackyll\Applejackyll( $input->getArgument('config') ))->parse();
+        (new \Applejackyll\Applejackyll( $input->getOption('config') ))->parse();
+    }
+}
+class ServerCommand extends Command
+{
+    protected function configure()
+    {
+        $this
+            ->setName('server')
+            ->setDescription('Operations with built-in-php web-server...')
+            ->addArgument(
+                'start'
+                ,InputArgument::OPTIONAL
+                ,'start'
+            )
+            ->addArgument(
+                'stop'
+                ,InputArgument::OPTIONAL
+                ,'stop'
+            )
+            ->addArgument(
+                'restart'
+                ,InputArgument::OPTIONAL
+                ,'restart'
+            )
+            ->addArgument(
+                'status'
+                ,InputArgument::OPTIONAL
+                ,'show status. default command'
+            )
+            ->addOption('host','a'
+                ,InputOption::VALUE_OPTIONAL
+                ,'Specify address (hostname or ip) for built-in web server'
+                ,'127.0.0.1'
+            )
+            ->addOption('port','p'
+                ,InputOption::VALUE_OPTIONAL
+                ,'Specify port for built-in web server'
+                ,4040
+            )
+            ->addOption('docroot','r'
+                ,InputOption::VALUE_OPTIONAL
+                ,'Specify document root <docroot> for built-in web server'
+                ,null
+            )
+            ->addOption('config','c'
+                ,InputOption::VALUE_OPTIONAL
+                ,'Path to config file <site.yaml>'
+                ,getcwd().DIRECTORY_SEPARATOR.'site.yaml'
+            )
+
+        ;
+    }
+    protected function execute(InputInterface $input, OutputInterface $output)
+    {
+//        $config = $input->getArgument('config');
+//        $homedir = $input->getArgument('homedir');
+
+//        (new \Applejackyll\Applejackyll( $input->getArgument('config') ))->parse();
     }
 }
 class ClearcacheCommand extends Command
@@ -78,6 +129,7 @@ class ClearcacheCommand extends Command
 $application = new Application();
 $application->add(new StartCommand());
 $application->add(new ClearcacheCommand());
+$application->add(new ServerCommand());
 $application->run();
 
 ?>
