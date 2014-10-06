@@ -4,6 +4,8 @@ set_time_limit(0);
 date_default_timezone_set('Europe/Moscow');
 require_once __DIR__ . '/../vendor/autoload.php';
 
+define('DEFAULT_CONFIG_FILENAME', getcwd().DIRECTORY_SEPARATOR.'site.yaml');
+
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -22,7 +24,7 @@ class StartCommand extends Command
             ->addOption('config','c'
                 ,InputOption::VALUE_OPTIONAL
                 ,'Path to config file <site.yaml>'
-                ,getcwd().DIRECTORY_SEPARATOR.'site.yaml'
+                ,DEFAULT_CONFIG_FILENAME
             )
         ;
     }
@@ -42,24 +44,10 @@ class ServerCommand extends Command
             ->setName('server')
             ->setDescription('Operations with built-in-php web-server...')
             ->addArgument(
-                'start'
+                'action'
                 ,InputArgument::OPTIONAL
-                ,'start'
-            )
-            ->addArgument(
-                'stop'
-                ,InputArgument::OPTIONAL
-                ,'stop'
-            )
-            ->addArgument(
-                'restart'
-                ,InputArgument::OPTIONAL
-                ,'restart'
-            )
-            ->addArgument(
-                'status'
-                ,InputArgument::OPTIONAL
-                ,'show status. default command'
+                ,'Can take values: start, stop, restart, status'
+                ,'status'
             )
             ->addOption('host','a'
                 ,InputOption::VALUE_OPTIONAL
@@ -79,17 +67,21 @@ class ServerCommand extends Command
             ->addOption('config','c'
                 ,InputOption::VALUE_OPTIONAL
                 ,'Path to config file <site.yaml>'
-                ,getcwd().DIRECTORY_SEPARATOR.'site.yaml'
+                ,DEFAULT_CONFIG_FILENAME
             )
 
         ;
     }
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-//        $config = $input->getArgument('config');
-//        $homedir = $input->getArgument('homedir');
-
-//        (new \Applejackyll\Applejackyll( $input->getArgument('config') ))->parse();
+        $action = $input->getArgument('action');
+        $server = (new \Applejackyll\Applejackyll( $input->getOption('config') ))
+                    ->server()
+                        ->set($input->getOption('host')
+                            ,$input->getOption('port')
+                            ,$input->getOption('docroot')
+                        );
+        if (method_exists($server,$action)) $server->$action();
     }
 }
 class ClearcacheCommand extends Command
@@ -126,10 +118,11 @@ class ClearcacheCommand extends Command
     }
 }
 
-$application = new Application();
-$application->add(new StartCommand());
-$application->add(new ClearcacheCommand());
-$application->add(new ServerCommand());
-$application->run();
+
+$console = new Application('\\Applejackyll\\Console',\Applejackyll\Applejackyll::VERSION);
+$console->add(new StartCommand());
+$console->add(new ClearcacheCommand());
+$console->add(new ServerCommand());
+$console->run();
 
 ?>

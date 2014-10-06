@@ -553,6 +553,10 @@ class Applejackyll extends \stdClass{
         return $url;
     }
 
+    public function server()
+    {
+        return (new \Applejackyll\Server());
+    }
 }
 
 
