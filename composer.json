@@ -17,10 +17,7 @@
 
         "jbroadway/urlify": "*",
         "twig/twig": "*",
-        "aptoma/twig-markdown": "*",
-        "michelf/php-markdown": "*",
-
-        "mustangostang/spyc": "*"
+        "aptoma/twig-markdown": "*"
     }
     ,
     "autoload": {
