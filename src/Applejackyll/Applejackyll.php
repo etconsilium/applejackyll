@@ -13,9 +13,7 @@ use Doctrine\Common\Cache\RedisCache;
 use Doctrine\Common\Cache\XcacheCache;
 use Doctrine\Common\Cache\ZendDataCache;
 use \Symfony\Component\Finder\Finder;
-use \Symfony\Component\Filesystem\Filesystem;
 use \Symfony\Component\Yaml\Yaml;   //  кривой
-use TwigTestExtension;
 use Twig_Autoloader;
 use Twig_Environment;
 use Twig_Extension;
@@ -259,7 +257,7 @@ class Applejackyll extends \stdClass{
         if (is_string($configfile)) {
             $this->init($configfile);
         }
-        $this->site['page']['content']=&$this->page['content'];
+
         return $this;
     }
 
@@ -267,6 +265,7 @@ class Applejackyll extends \stdClass{
      * Parser initialization
      *
      * @param string $configfile
+     * @throws FileNotFoundException
      * @return $this
      */
     public function init($configfile)
@@ -287,13 +286,14 @@ class Applejackyll extends \stdClass{
         try {
             $c=file_get_contents($configfile);
         } catch (\Exception $e) {
-            throw new \FileNotFoundException($e->getMessage()); die;
+            throw new \Symfony\Component\Filesystem\Exception\FileNotFoundException($e->getMessage()); die;
         }
 
         $this->site=\Symfony\Component\Yaml\Yaml::parse( $c ); unset($c);
         $this->site=new \ArrayObject($this->site,\ArrayObject::ARRAY_AS_PROPS);
 
-        $this->site['page']=$this->_page;
+//        $this->site['page']=&$this->_page;
+        $this->_page=&$this->site['page'];
 
         $site=&$this->site;
 
@@ -303,7 +303,7 @@ class Applejackyll extends \stdClass{
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
         if (!is_dir($site['temp'])) {
             $site['temp']=$site['root'].DIRECTORY_SEPARATOR.$site['temp'];
-            @mkdir($site['temp'],0777,1);
+            @mkdir($site['temp'],0755,1);
         }
         $this->_cache=new CacheSpooler($site['cache'], $site['temp']);
 
@@ -402,15 +402,23 @@ class Applejackyll extends \stdClass{
         if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
         $this->_ids[]=$page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').$page['title'];
         $this->_posts[$page['id']]=$page['date']->getTimestamp();
-//            $page['permalink']=
-        $page['url']=$this->site['baseurl']
+
+        $page['permalink']
+            =$this->site['baseurl']
             .$page['date']->format('Y/m/d/')
             .(!empty($this->site['transliteration']) ? \URLify::filter($page['title']) : $page['title']).'.html';    //  hardcode
+
+        if (!empty($page['slug']))
+            $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? \URLify::filter($page['slug']) : $page['slug']).'.html';
+        else
+            $page['url']=$page['permalink'];
 
         if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
             $page['url']=str_replace('.html','-'.substr(uniqid(),5).'.html',$page['url']);    //  hardcode
 
         $this->_urls[]=$page['url'];
+
+        //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
 
         $page['path']=$realpath;  //  raw
         //
@@ -555,26 +563,44 @@ class Applejackyll extends \stdClass{
 
     public function server()
     {
-        return (new \Applejackyll\Server());
+        return (new \Applejackyll\Server($this));
     }
 }
 
 
 class Server{
-    const COMMAND_LINE='php -S %s:%s -t %s >/dev/null 2>&1 & echo $!';
+    const COMMAND_LINE='php -S %s:%s -t %s >/dev/null 2>/dev/null & echo $!';
     const STATUS_RUN='run';
     const STATUS_EMPTY='empty';
+    const FILE_NAME='_server.pid';
 
-    private $_host, $_port, $_docroot, $_status;
+    private $_app;
+    private $_host, $_port, $_docroot;
+    private $_status;
 
-    private function _lock()
+    function __construct($app)
     {
+        $this->_app=$app;
+        return $this;
+    }
 
+    private function _pidfile()
+    {
+        return $this->_app->site['temp'].DIRECTORY_SEPARATOR.self::FILE_NAME;
+    }
+
+    private function _lock($pid)
+    {
+        if (!$this->_process_id()) {
+            file_put_contents($this->_pidfile(),$pid,LOCK_EX);
+        }
+        return $this;
     }
 
     private function _process_id()
     {
-
+        $pf=$this->_pidfile();
+        return is_readable($pf) ? (int)file_get_contents($pf) : 0;
     }
 
     private function _command_string()
@@ -582,15 +608,23 @@ class Server{
         return sprintf(self::COMMAND_LINE,$this->_host,$this->_port,$this->_docroot);
     }
 
-    public function set($host='127.0.0.1', $port=4040, $docroot='./')
+    public function set($host, $port, $docroot)
     {
-        $this->_host=$host; $this->_port=$port; $this->_docroot=$docroot;
+        $this->_host=$host; $this->_port=$port; $this->_docroot=(empty($docroot)?$this->_app->site['destination']:$docroot);
         return $this;
     }
 
     public function start()
     {
-
+        if (!$pid=$this->_process_id()) {
+            ob_start();
+            $pid=(int)system( $this->_command_string() );
+            ob_end_clean();
+            if ($pid) $this->_lock($pid);
+            else throw new \ErrorException('что-то пошло не так');
+        }
+        else
+            throw new \ErrorException('кажется, сервер уже запущен. pid='.$pid);
     }
 
     public function status()
