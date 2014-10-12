@@ -60,13 +60,16 @@ layouts:  _layouts
 safe: false
 
 # Force inclusion of files in the conversion
-#files only
-include:  ['*.md','*.markdown','*.MD','*.twig']
+#files only, posts
+include:  ['*.md','*.markdown','*.MD','*.twig','*.css','*.js','*.html']
 # Exclude directories from the conversion
 #dirs only
 exclude:  ['.git','.svn']
+# Exclude files
 #files
-notname:  ['.*']
+notname:  []
+# скопировать остальные файлы
+copy: true
 
 timezone:    'Europe/Moscow'
 date_format: 'Y/m/d'
@@ -121,13 +124,13 @@ limit_posts: 0
 #Serve Command Options
 
 #run local server
-# запускать внутренний сервер php. false используется внешний
+# запускать внутренний сервер php. false = используется внешний
 watch:  false
 
-host: 127.0.0.1
-port: 4000
-baseurl:  /
-url:  //localhost:4000
+host: '127.0.0.1'
+port: 4040
+baseurl:  '/'
+url:  '//localhost:4040'
 #Detach the server from the terminal
 detach: true
 

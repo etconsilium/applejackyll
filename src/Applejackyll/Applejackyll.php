@@ -224,7 +224,6 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
             $this->_spool[$id]->flushAll();
             return;
         }
-//        var_dump($this->_priority['delete']);
         /**
          * @var $adapter \Doctrine\Common\Cache\Cache
          */
@@ -238,7 +237,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.10.14';
+    CONST VERSION='1.14.19';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
@@ -300,6 +299,8 @@ class Applejackyll extends \stdClass{
         $site['time']=TIMESTART;
         if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
         if (empty($site['root'])) $site['root']=getcwd();
+        $site['source_path']=$site['root'].DIRECTORY_SEPARATOR.$site['source'];
+
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
         if (!is_dir($site['temp'])) {
             $site['temp']=$site['root'].DIRECTORY_SEPARATOR.$site['temp'];
@@ -318,7 +319,6 @@ class Applejackyll extends \stdClass{
     protected function phase1_analyze()
     {
         $site=&$this->site;
-        $source_dir=$site['root'].DIRECTORY_SEPARATOR.$site['source'];
 
         $finder=(new Finder)->files();
         foreach ($site['include'] as $fn) $finder->name($fn);
@@ -326,7 +326,7 @@ class Applejackyll extends \stdClass{
         foreach ($site['notname'] as $fn) $finder->notName($fn);
         $posts=$finder
             ->useBestAdapter()
-            ->in($source_dir)
+            ->in($this->site['source_path'])
             ->ignoreDotFiles(1)
             ->ignoreVCS(1)
             ->ignoreUnreadableDirs(1)
@@ -359,68 +359,109 @@ class Applejackyll extends \stdClass{
     }
 
     /**
-     * @param $file \SplFileInfo
+     * @param $file \Symfony\Component\Finder\SplFileInfo
      * @return $this
      */
     protected function phase1_file_prepare($file)
     {
-        $page=$this->site['defaults']['values'];
+        //  не перепутайте пути
+        $basename=$file->getBasename();
         $realpath=$file->getRealPath();
-        $ar=explode('---',trim(file_get_contents($realpath)),2);
+        $relative_path=$file->getRelativePath();
+//        $source_path=$this->site['source_path'];
+//        $dest_path=$this->site['dest_path'];
 
-        if (1===count($ar)) {
-            $page['content']=trim($ar[0]);
-        }
-        else {
-            $page=array_replace_recursive($page,Yaml::parse($ar[0]));
-            $page['content']=trim($ar[1]);
-        }
+        //  порядок заполненения переменных подчиняется внутренней логике
+        $page=$this->site['defaults']['values'];
 
+        $page['source_path']=$realpath;  //  raw
+//
         $page['hash']=sha1($realpath.md5_file($realpath));
         $page['type']=strtolower($file->getExtension());
 
-        $relative_path=$file->getRelativePath();
+//        $a=explode('---',trim(file_get_contents($realpath)),2);
+        $a=explode('---',trim($file->getContents()),2);
 
-        //  хардкод с путём, как датой
-        if (!empty($page['date']) && !strtotime($page['date'])) {
-            trigger_error("Invalid date format `{$page['date']}` in file `{$realpath}`",E_USER_NOTICE);
+        if (1===count($a)) {
+            //  не пост
+            $page['content']=trim($a[0]);
+            $page['layout']=null;
+            $page['dest_path']=$this->site['destination']
+                .( !empty($relative_path) ? DIRECTORY_SEPARATOR.$relative_path : '' )
+                .DIRECTORY_SEPARATOR.$basename;
+            $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
         }
-        elseif (empty($page['date'])) {
-            $pattern='*(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})*';
-            $a=[];
+        else {
+            //  пост и много переменных. и много неоптимальной магии
 
-            $p=$file->getBasename();
-            preg_match_all($pattern,$p,$a,PREG_SET_ORDER);
-            $a=array_shift($a);
-            if (is_array($a))
-                $page['date']=$a[0];
-            else
-                $page['date']=date('Y-m-d H:i:s',$file->getMTime());
+            $page=array_replace_recursive($page,(array)Yaml::parse($a[0]));
+            $page['content']=trim($a[1]);
+
+            //  заголовок и имя файла без расширения
+            if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
+            $filename=(empty($this->site['transliteration']) ? \URLify::filter($page['title']) : $page['title']);
+
+            //  ошибка внутренней даты
+            if (!empty($page['date']) && !strtotime($page['date'])) {
+                trigger_error("Invalid date format `{$page['date']}` in file `{$realpath}`",E_USER_NOTICE);
+            }
+            elseif (empty($page['date'])) { //  ещё больше магии
+
+                //  дата не была указана. пытаемся выделить из пути
+                $pattern='*/?(?<year>\d{4})[\\\\.\-\s/](?<month>\d{2})[\\\\.\-\s/](?<day>\d{2})(?!-|/)?*';
+                $a=[];  //  all'sok
+                $a=preg_split($pattern,$relative_path,2);
+
+                if (1===sizeof($a)) {
+                    //  нет даты, не надо подставлять в путь
+                    $page['dest_path']=$this->site['destination']
+                        .( !empty($relative_path) ? DIRECTORY_SEPARATOR.$relative_path : '' )
+                        .DIRECTORY_SEPARATOR.$filename
+                        .'.html';   //  hardcode ext
+                    $page['url']=$this->site['baseurl'].$filename.'.html';
+
+                    //  забираем дату из времени модификации файла
+                    $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
+
+                    //  вдруг есть категории
+                    $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$relative_path)));
+                }
+                else {
+                    //  перваяя часть - категории, вторая - что-то ещё, ненужное и неинтересное
+                    $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$a[0])));
+
+                    //  достаём дату тем же шаблоном
+                    preg_match_all($pattern,$basename,$a,PREG_SET_ORDER);   //  all'sok
+                    $a=array_shift($a);
+                    if (is_array($a))
+                        $page['date']=new \DateTime($a[0]);
+                    else
+                        $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
+
+                    $page['dest_path']=$this->site['destination']
+                        .DIRECTORY_SEPARATOR.$page['date']->format('Y'.DIRECTORY_SEPARATOR.'m'.DIRECTORY_SEPARATOR.'d')
+                        .DIRECTORY_SEPARATOR.$filename
+                        .'.html';   //  hardcode ext
+                    $page['url']=$this->site['baseurl'].$page['date']->format('Y/m/d/').$filename.'.html';
+                }
+            }
+
+            if (!empty($page['slug']))
+                $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? \URLify::filter($page['slug']) : $page['slug']).'.html';
+
+            if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
+                $page['url']=str_replace('.html','-'.count($this->_urls).'.html',$page['url']);    //  если не добавлять статей задним числом, то номера совпадут
+
+            $this->_urls[]=$page['url'];
+            $page['permalink']=$this->site['baseurl'].$page['hash'].'.html';
+
+            //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
         }
-        $page['date']=new \DateTime($page['date']);
 
-        if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
-        $this->_ids[]=$page['id']=(!empty($relative_path)?$relative_path.DIRECTORY_SEPARATOR:'').$page['title'];
+        $this->_ids[]=$page['id']=$page['url'];
         $this->_posts[$page['id']]=$page['date']->getTimestamp();
 
-        $page['permalink']
-            =$this->site['baseurl']
-            .$page['date']->format('Y/m/d/')
-            .(!empty($this->site['transliteration']) ? \URLify::filter($page['title']) : $page['title']).'.html';    //  hardcode
 
-        if (!empty($page['slug']))
-            $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? \URLify::filter($page['slug']) : $page['slug']).'.html';
-        else
-            $page['url']=$page['permalink'];
-
-        if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
-            $page['url']=str_replace('.html','-'.substr(uniqid(),5).'.html',$page['url']);    //  hardcode
-
-        $this->_urls[]=$page['url'];
-
-        //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
-
-        $page['path']=$realpath;  //  raw
         //
         if (!empty($page['category'])) is_array($page['category'])?$page['categories']=array_merge($page['categories'],$page['category']):$page['categories'][]=$page['category'];
         if (!empty($this->site['categiries_path'])) $page['categories']=array_merge($page['categories'],explode(DIRECTORY_SEPARATOR,$relative_path));
@@ -452,15 +493,14 @@ class Applejackyll extends \stdClass{
         $site['tags']=$tags;
         $site['posts']=$posts;  //  A reverse chronological list of all Posts. i do not know that it will contains
 //        $site['pages']=$pages;  //  A list of all Pages. i do know that php havent resources for _all_ pages
-//        var_dump($ids,$posts);
         $prev=null;$next=null;
         foreach ($posts as $id) {
             $page=$cache->fetch('page#'.$id);
             $page['prev']=&$prev;
             if ($prev) $page['prev']['next']=&$page;
-
 //            $site['html_pages'][$id]=$this->phase2_page_parse($page);
-            file_put_contents($site['destination'].$page['url']
+            @mkdir(dirname($page['dest_path']),0775,1); //  предохранительный костыль
+            file_put_contents($page['dest_path']
                 ,$this->phase2_page_parse($page), LOCK_EX);
 
             $prev=$page;
@@ -480,7 +520,8 @@ class Applejackyll extends \stdClass{
         $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
         $parser->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
 
-        if ('md'===$page['type']){
+//        if ('md'===$page['type']) {
+        if (!empty($page['layout'])) {
             $tmp_content=$page['content'];
             $page['content']='{% markdown %}'.$page['content'].'{% endmarkdown %}';
             $content=$twig->render($page['layout'].'.twig'
@@ -489,17 +530,34 @@ class Applejackyll extends \stdClass{
             $page['content']=$tmp_content;
 
             return $parser->render($content, ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
-
-//            file_put_contents($site['destination'].$page['url']
-//                ,$t,LOCK_EX);
-//            file_put_contents($site['destination'].DIRECTORY_SEPARATOR.microtime(1)
-//                ,$page['content'],LOCK_EX);
+        }
+        else {
+            return $twig->render($page['path'],['site'=>$site, 'page'=>$page]);
         }
     }
 
     protected function phase3_additive()
     {
-
+        $site=$this->site;
+        if (!empty($this->site['copy'])) {
+            $finder=(new Finder)->files();
+            $finder->name('*');
+            foreach ($site['include'] as $fn) $finder->exclude($fn);
+            foreach ($site['exclude'] as $fn) $finder->exclude($fn);
+            foreach ($site['notname'] as $fn) $finder->notName($fn);
+            $files=$finder
+                ->useBestAdapter()
+                ->in($this->site['source_path'])
+                ->ignoreDotFiles(1)
+                ->ignoreVCS(1)
+                ->ignoreUnreadableDirs(1)
+                ->sortByName()
+            ;
+            foreach ($files as $file) {
+                $realpath=$file->getRealPath();
+                copy($realpath, str_replace($this->site['root'], $this->site['destination'], $realpath));
+            }
+        }
     }
 
 
