@@ -237,7 +237,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.14.19';
+    CONST VERSION='1.4.17.21';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];

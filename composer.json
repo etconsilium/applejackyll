@@ -1,11 +1,11 @@
 {
     "name":"etconsilium/applejackyll"
-    ,"description": "Jekyll's PHP clone"
+    ,"description": "Yet Another Jekyll Clone. Powered by Markdown, Twig, PHP. Addicted by MPL ^__^"
     ,"tags":["jekyll","octopress"]
-    ,"keywords": ["jekyll","octopress","php"]
+    ,"keywords": ["jekyll","octopress","liquid","static blog","site generator"]
     ,"license": "BSDLv2"
     ,"copyright": "(cc-by-nc)"
-    ,"version":"1.3"
+    ,"version":"1.4"
     ,"require": {
         "php":">5.5",
 
