@@ -5,7 +5,7 @@
     ,"keywords": ["jekyll","octopress","liquid","static blog","site generator"]
     ,"license": "BSDLv2"
     ,"copyright": "(cc-by-nc)"
-    ,"version":"1.4"
+    ,"version":"1.4.1"
     ,"require": {
         "php":">5.5",
 
@@ -14,6 +14,7 @@
         "symfony/finder": "dev-master",
         "symfony/yaml": "dev-master",
         "doctrine/cache": "dev-master",
+        "phine/path": "dev-master",
 
         "jbroadway/urlify": "*",
         "twig/twig": "*",
