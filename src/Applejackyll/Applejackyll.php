@@ -313,6 +313,9 @@ class Applejackyll extends \stdClass{
             @mkdir($site['destination'],0755,1);
         }
 
+        if (!empty($site['frontmatter']) || !in_array($site['frontmatter'], ['jekyll','phrozn'] ) )
+            $site['frontmatter']='jekyll';
+
         return $this;
     }
 
@@ -379,8 +382,21 @@ class Applejackyll extends \stdClass{
         $page['hash']=sha1($realpath.md5_file($realpath));
         $page['type']=strtolower($file->getExtension());
 
-//        $a=explode('---',trim(file_get_contents($realpath)),2);
-        $a=explode('---',trim($file->getContents()),2);
+        //  FrontMatter default like a jekyll
+        //  'jekyll' = yaml between two tripledash
+        //  'phrozn' = one tripledash delimiter
+        $tripledash_pattern='~^---$~';
+        $fc=trim($file->getContents());
+        if ('phrozn'==$this->site['frontmatter']) {
+            $a = preg_split($tripledash_pattern,$fc,2);
+        }
+        elseif ('jekyll'==$this->site['frontmatter']) {
+            $a = preg_split($tripledash_pattern,$fc,3);
+            array_shift($a);
+        }
+        else {
+            throw new \Symfony\Component\Yaml\Exception\ParseException('parsing trouble'); die;
+        }
 
         if (1===count($a)) {
             //  не пост

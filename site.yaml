@@ -71,6 +71,11 @@ notname:  []
 # скопировать остальные файлы
 copy: true
 
+# yaml-header in the manner
+## of jekyll: --- between triple dash --- (security & default)
+## of phrozn:  before triple dash ---
+frontmatter: jekyll
+
 timezone:    'Europe/Moscow'
 date_format: 'Y/m/d'
 
@@ -149,15 +154,7 @@ categiries_path:  false # convert/and/add/relative/path/to/categories
 
 cache:
 # doctrine's adapters
-#  memory:
-#    adapter:
-#      name: memory  # virtual adapter extends ArrayCache
-#      max_size: 5000000   # bytes, approx
-#    priority:   # usn't. hardcoded
-#      save: first
-#      delete: last
-#      fetch:  first
-#      precheck: always
+
   memcached:   # <-- uniq id
     adapter:
       name: Memcached   # <-- adapter's name
