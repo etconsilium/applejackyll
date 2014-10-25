@@ -411,10 +411,13 @@ class Applejackyll extends \stdClass{
             //  не было разделителей, не псто
             $page['content']=trim($a[0]);
             $page['layout']=null;
-            $page['dest_path']=$this->site['destination']
-                .( !empty($relative_path) ? DIRECTORY_SEPARATOR.$relative_path : '' )
-                .DIRECTORY_SEPARATOR.$basename;
+//            $page['dest_path']=$this->site['destination']
+//                .( !empty($relative_path) ? DIRECTORY_SEPARATOR.$relative_path : '' )
+//                .DIRECTORY_SEPARATOR.$basename;   //  wtf?
             $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
+            $page['dest_path']=$this->site['destination']
+                .DIRECTORY_SEPARATOR.str_replace($relative_path, '', $realpath);
+            ;
         }
         else {
             //  пост и много переменных. и много неоптимальной магии
@@ -433,9 +436,9 @@ class Applejackyll extends \stdClass{
             elseif (empty($page['date'])) { //  ещё больше магии
 
                 //  дата не была указана. пытаемся выделить из пути
-                $pattern='*/?(?<year>\d{4})[\\\\.\-\s/](?<month>\d{2})[\\\\.\-\s/](?<day>\d{2})(?!-|/)?*';
+                $pattern='*/?(?<year>\d{4})[\.\-\s/\\\](?<month>\d{2})[\.\-\s/\\\](?<day>\d{2})[\.\-\s/\\\]?*';
                 $a=[];  //  all'sok
-                $a=preg_split($pattern,$relative_path,2);
+                $a=preg_split($pattern, $relative_path.DIRECTORY_SEPARATOR.$basename);
 
                 if (1===sizeof($a)) {
                     //  нет даты, не надо подставлять в путь
@@ -453,13 +456,13 @@ class Applejackyll extends \stdClass{
                 }
                 else {
                     //  перваяя часть - категории, вторая - что-то ещё, ненужное и неинтересное
-                    $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$a[0])));
+                    $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$relative_path)));
 
                     //  достаём дату тем же шаблоном
-                    preg_match_all($pattern,$basename,$a,PREG_SET_ORDER);   //  all'sok
-                    $a=array_shift($a);
+                    preg_match_all($pattern, $relative_path.DIRECTORY_SEPARATOR.$basename, $a,PREG_SET_ORDER);   //  all'sok
+                    array_shift($a[0]); $a=$a[0];
                     if (is_array($a))
-                        $page['date']=new \DateTime($a[0]);
+                        $page['date']=new \DateTime("{$a['year']}-{$a['month']}-{$a['day']}");
                     else
                         $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
 
