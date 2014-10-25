@@ -390,18 +390,22 @@ class Applejackyll extends \stdClass{
         $file_contents=trim($file->getContents());
         if ('phrozn'==$this->site['frontmatter']) {
             $a = preg_split($tripledash_pattern,$file_contents,2);
-//            var_dump('yo!!!');
         }
         elseif ('jekyll'==$this->site['frontmatter']) {
             $a = preg_split($tripledash_pattern,$file_contents,3);
-            array_shift($a);
+            if (1<count($a))    {
+                if (!empty($a[0]))
+                    trigger_error( sprintf('кажется, в файле `%s` пропущен разделитель',$file->getFilename()), E_USER_WARNING);
+
+                array_shift($a);
+            }
         }
         else {
             throw new \Symfony\Component\Yaml\Exception\ParseException('parsing trouble'); die;
         }
-//var_dump( $this->site['frontmatter'], $realpath, $a);
+
         if (1===count($a)) {
-            //  не пост
+            //  не было разделителей, не псто
             $page['content']=trim($a[0]);
             $page['layout']=null;
             $page['dest_path']=$this->site['destination']
