@@ -247,6 +247,9 @@ class Applejackyll extends \stdClass{
     protected $_categories=[];
     protected $_tags=[];
     protected $_urls=[];
+    /**
+     * @var \Applejackyll\CacheSpooler
+     */
     protected $_cache;
     protected $_page=[
         //  _config.yaml:defaults
@@ -480,8 +483,8 @@ class Applejackyll extends \stdClass{
 
             //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
 
-            $this->_ids[]=$page['id']=$page['url'];
         }
+        $this->_ids[]=$page['id']=$page['hash'];
 
         $this->_posts[$page['id']]=$page['date']->getTimestamp();
 
@@ -497,9 +500,6 @@ class Applejackyll extends \stdClass{
         foreach ($page['tags'] as $i) {
             $this->_tags[$i][]=$page['id'];
         }
-        /**
-         * @var $this->_cache CacheSpooler
-         */
         $this->_cache->save('page#'.$page['id'],$page);
 
         return $this;
@@ -546,7 +546,7 @@ class Applejackyll extends \stdClass{
             $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
             $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
             $parser->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
-//var_dump($page);
+
             $tmp_content=$page['content'];
             $page['content']='{% markdown %}'.$page['content'].'{% endmarkdown %}';
 
