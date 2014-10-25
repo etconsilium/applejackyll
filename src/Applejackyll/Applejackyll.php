@@ -19,6 +19,7 @@ use Twig_Environment;
 use Twig_Extension;
 use \Aptoma\Twig\Extension\MarkdownExtension;
 use \Aptoma\Twig\Extension\MarkdownEngine;
+use \Michelf\MarkdownExtra; //  необходимо записывать в композер вручную, автоматически зависимости не подгружаются
 
 class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
@@ -237,7 +238,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.4.18.13';
+    CONST VERSION='1.4.25.09';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
@@ -313,7 +314,7 @@ class Applejackyll extends \stdClass{
             @mkdir($site['destination'],0755,1);
         }
 
-        if (!empty($site['frontmatter']) || !in_array($site['frontmatter'], ['jekyll','phrozn'] ) )
+        if (empty($site['frontmatter']) || !in_array($site['frontmatter'], ['jekyll','phrozn'] ) )
             $site['frontmatter']='jekyll';
 
         return $this;
@@ -385,19 +386,20 @@ class Applejackyll extends \stdClass{
         //  FrontMatter default like a jekyll
         //  'jekyll' = yaml between two tripledash
         //  'phrozn' = one tripledash delimiter
-        $tripledash_pattern='~^---$~';
-        $fc=trim($file->getContents());
+        $tripledash_pattern='~^---$~mu';
+        $file_contents=trim($file->getContents());
         if ('phrozn'==$this->site['frontmatter']) {
-            $a = preg_split($tripledash_pattern,$fc,2);
+            $a = preg_split($tripledash_pattern,$file_contents,2);
+//            var_dump('yo!!!');
         }
         elseif ('jekyll'==$this->site['frontmatter']) {
-            $a = preg_split($tripledash_pattern,$fc,3);
+            $a = preg_split($tripledash_pattern,$file_contents,3);
             array_shift($a);
         }
         else {
             throw new \Symfony\Component\Yaml\Exception\ParseException('parsing trouble'); die;
         }
-
+//var_dump( $this->site['frontmatter'], $realpath, $a);
         if (1===count($a)) {
             //  не пост
             $page['content']=trim($a[0]);

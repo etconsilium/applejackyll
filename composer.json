@@ -18,7 +18,8 @@
 
         "jbroadway/urlify": "*",
         "twig/twig": "*",
-        "aptoma/twig-markdown": "*"
+        "aptoma/twig-markdown": "*",
+        "michelf/php-markdown": "*"
     }
     ,
     "autoload": {
