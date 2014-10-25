@@ -238,7 +238,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.4.25.09';
+    CONST VERSION='1.4.25.15';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
@@ -479,9 +479,10 @@ class Applejackyll extends \stdClass{
                 $page['permalink']=$this->site['baseurl'].$page['hash'].'.html';
 
             //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
+
+            $this->_ids[]=$page['id']=$page['url'];
         }
 
-        $this->_ids[]=$page['id']=$page['url'];
         $this->_posts[$page['id']]=$page['date']->getTimestamp();
 
 
@@ -535,27 +536,28 @@ class Applejackyll extends \stdClass{
         $site=&$this->site;
         $this->_page=&$page;
 
-        \Twig_Autoloader::register();
-        $twig=new \Twig_Environment(new \Twig_Loader_Filesystem($site['root'].DIRECTORY_SEPARATOR.$site['layouts'])
-            ,['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
-
-        $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
-        $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
-        $parser->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
-
 //        if ('md'===$page['type']) {
         if (!empty($page['layout'])) {
+
+            \Twig_Autoloader::register();
+            $twig=new \Twig_Environment(new \Twig_Loader_Filesystem($site['root'].DIRECTORY_SEPARATOR.$site['layouts'])
+                ,['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
+
+            $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
+            $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
+            $parser->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
+//var_dump($page);
             $tmp_content=$page['content'];
             $page['content']='{% markdown %}'.$page['content'].'{% endmarkdown %}';
-            $content=$twig->render($page['layout'].'.twig'
-                ,['site'=>$site, 'page'=>$page, 'content'=>$page['content']]
-            );
+
+            $content=$twig->render($page['layout'].'.twig', ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
             $page['content']=$tmp_content;
 
             return $parser->render($content, ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
         }
         else {
-            return $twig->render($page['path'],['site'=>$site, 'page'=>$page]);
+            $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
+            return $parser->render(file_get_contents($page['source_path']), ['site'=>$site, 'page'=>$page]);
         }
     }
 
