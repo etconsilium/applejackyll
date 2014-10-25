@@ -475,7 +475,8 @@ class Applejackyll extends \stdClass{
                 $page['url']=str_replace('.html','-'.count($this->_urls).'.html',$page['url']);    //  если не добавлять статей задним числом, то номера совпадут
 
             $this->_urls[]=$page['url'];
-            $page['permalink']=$this->site['baseurl'].$page['hash'].'.html';
+            if (empty($page['permalink']))
+                $page['permalink']=$this->site['baseurl'].$page['hash'].'.html';
 
             //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
         }
