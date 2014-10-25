@@ -119,10 +119,10 @@ class ClearcacheCommand extends Command
         $date_after = $input->getOption('after');
         $date_before = $input->getOption('before');
         if (is_null($date_before) && is_null($date_after)) {
-            (new \Applejackyll\Applejackyll())->clearCache();
+            (new \Applejackyll\Applejackyll($input->getOption('config')))->clearCache();
         }
         else {
-            (new \Applejackyll\Applejackyll())->deleteByDate(new \DateTime($date_after),new \DateTime($date_before));
+            (new \Applejackyll\Applejackyll($input->getOption('config')))->deleteByDate(new \DateTime($date_after),new \DateTime($date_before));
         }
     }
 }
