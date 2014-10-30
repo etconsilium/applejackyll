@@ -68,8 +68,7 @@ exclude:  ['.git','.svn']
 # Exclude files
 #files
 notname:  []
-# скопировать остальные файлы
-copy: true
+# остальные файлы копируются всегда и записываются в массив static_files
 
 # yaml-header in the manner
 ## of jekyll: --- between triple dash --- (security & default)
