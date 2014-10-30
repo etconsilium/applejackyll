@@ -14,7 +14,8 @@
         "symfony/finder": "dev-master",
         "symfony/yaml": "dev-master",
         "doctrine/cache": "dev-master",
-        "phine/path": "dev-master",
+        "eloquent/pathogen": "dev-master",
+        "etconsilium/php-recursive-array-object": "dev-master",
 
         "jbroadway/urlify": "*",
         "twig/twig": "*",
