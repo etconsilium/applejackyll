@@ -1,5 +1,14 @@
 <?php namespace Applejackyll;
 
+use Doctrine\Common\Cache\FilesystemCache;
+use Doctrine\Common\Cache\MemcacheCache;
+use Doctrine\Common\Cache\MemcachedCache;
+use Doctrine\Common\Cache\MongoDBCache;
+use Doctrine\Common\Cache\PhpFileCache;
+use Doctrine\Common\Cache\RedisCache;
+use Doctrine\Common\Cache\XcacheCache;
+use Doctrine\Common\Cache\ZendDataCache;
+
 /**
  * Description of CacheSpooler
  *
