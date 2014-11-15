@@ -1,7 +1,7 @@
 {
     "name":"etconsilium/applejackyll"
     ,"description": "Yet Another Jekyll Clone. Powered by Markdown, Twig, Console. Addicted by MLP ^__^"
-    ,"tags":["jekyll","octopress"]
+    ,"tags": ["jekyll","octopress"]
     ,"keywords": ["jekyll","octopress","liquid","static blog","site generator"]
     ,"license": "BSDLv2"
     ,"copyright": "(cc-by-nc)"
@@ -26,4 +26,6 @@
     "autoload": {
         "psr-0": { "Applejackyll": "src/" }
     }
+    ,
+    "bin": ["bin/console.php"]
 }

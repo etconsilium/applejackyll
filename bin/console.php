@@ -4,7 +4,12 @@ namespace Applejackyll;
 
 set_time_limit(0);
 date_default_timezone_set('Europe/Moscow');
-require_once __DIR__ . '/../vendor/autoload.php';
+if (is_readable(__DIR__ . '/../vendor/autoload.php') ) require_once __DIR__ . '/../vendor/autoload.php';
+elseif (is_readable(__DIR__ . '/vendor/autoload.php') ) require_once __DIR__ . '/vendor/autoload.php';
+elseif (is_readable(getcwd() . '/../vendor/autoload.php') ) require_once getcwd() . '/../vendor/autoload.php';
+elseif (is_readable(getcwd() . '/vendor/autoload.php') ) require_once getcwd() . '/vendor/autoload.php';
+elseif (is_readable('vendor/autoload.php') ) require_once 'vendor/autoload.php';
+else die(-1);
 
 define('DEFAULT_CONFIG_FILENAME', getcwd().DIRECTORY_SEPARATOR.'site.yaml');
 
