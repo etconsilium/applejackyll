@@ -5,7 +5,7 @@
     ,"keywords": ["jekyll","octopress","liquid","static blog","site generator"]
     ,"license": "BSDLv2"
     ,"copyright": "(cc-by-nc)"
-    ,"version":"1.4.1"
+    ,"version":"1.4.2"
     ,"require": {
         "php":">5.5",
 
