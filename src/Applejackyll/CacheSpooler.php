@@ -1,5 +1,14 @@
 <?php namespace Applejackyll;
 
+use Doctrine\Common\Cache\FilesystemCache;
+use Doctrine\Common\Cache\MemcacheCache;
+use Doctrine\Common\Cache\MemcachedCache;
+use Doctrine\Common\Cache\MongoDBCache;
+use Doctrine\Common\Cache\PhpFileCache;
+use Doctrine\Common\Cache\RedisCache;
+use Doctrine\Common\Cache\XcacheCache;
+use Doctrine\Common\Cache\ZendDataCache;
+
 /**
  * Description of CacheSpooler
  *
@@ -16,7 +25,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
     function __construct($cache_list=null, $default_temp=null) {
         $this->_mem_start=memory_get_usage();
-        is_array($cache_list) && $this->init($cache_list, $default_temp);
+        $this->init($cache_list, $default_temp);
         return $this;
     }
 
