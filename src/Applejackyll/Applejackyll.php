@@ -4,14 +4,6 @@ define ('TIMESTART',microtime(1));
 define ('APP_SALT',md5_file(__FILE__));
 define ('APP_ID',__NAMESPACE__);
 
-use Doctrine\Common\Cache\FilesystemCache;
-use Doctrine\Common\Cache\MemcacheCache;
-use Doctrine\Common\Cache\MemcachedCache;
-use Doctrine\Common\Cache\MongoDBCache;
-use Doctrine\Common\Cache\PhpFileCache;
-use Doctrine\Common\Cache\RedisCache;
-use Doctrine\Common\Cache\XcacheCache;
-use Doctrine\Common\Cache\ZendDataCache;
 use \Symfony\Component\Finder\Finder;
 use \Symfony\Component\Yaml\Yaml;   //  кривой
 use Twig_Autoloader;
@@ -82,19 +74,26 @@ class Applejackyll extends \stdClass{
             throw new \Symfony\Component\Filesystem\Exception\FileNotFoundException($e->getMessage()); die;
         }
 
-        $this->site=new JSObject( \Symfony\Component\Yaml\Yaml::parse( $c ) );
+        $this->site=\Symfony\Component\Yaml\Yaml::parse( $c );
 
         $site=&$this->site;
 
         //  обработка общих конфигов
         if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
-        if (empty($site['root'])) $site['root']=getcwd();
-        
+
+//        if (empty($site['root'])) $site['root']='./';
         $basepath = EFSPath::fromString(dirname($configfile));
-        $rootpath = $basepath->resolve( EFSPath::fromString($site['root']) );
+        $rootpath = $basepath->resolve( EFSPath::fromString($site['root']?:'') );
         $site['root'] = $rootpath->normalize()->string();
 
-        $site['source_path']=$rootpath->resolve( EFSPath::fromString($site['source']))->normalize()->string();
+        if (!is_dir($site['source'])) {
+            $site['source']=$rootpath->resolve( EFSPath::fromString($site['source']))->normalize()->string();
+            @mkdir($site['source'],0755,1);
+        }
+        if (!is_dir($site['destination'])) {
+            $site['destination']=$rootpath->resolve( EFSPath::fromString($site['destination']))->normalize()->string();
+            @mkdir($site['destination'],0755,1);
+        }
 
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
         if (!is_dir($site['temp'])) {
@@ -103,11 +102,6 @@ class Applejackyll extends \stdClass{
         }
         $this->_cache=new CacheSpooler($site['cache'], $site['temp']);
 
-        if (!is_dir($site['destination'])) {
-            $site['destination']=$rootpath->resolve( EFSPath::fromString($site['destination']))->normalize()->string();
-            @mkdir($site['destination'],0755,1);
-        }
-        var_dump($site['destination']);
         if (empty($site['frontmatter']) || !in_array($site['frontmatter'], ['jekyll','phrozn'] ) )
             $site['frontmatter']='jekyll';
 
@@ -141,7 +135,7 @@ class Applejackyll extends \stdClass{
         foreach ($site['notname'] as $fn) $finder->notName($fn);
         $posts=$finder
             ->useBestAdapter()
-            ->in($this->site['source_path'])
+            ->in($this->site['source'])
             ->ignoreDotFiles(1)
             ->ignoreVCS(1)
             ->ignoreUnreadableDirs(1)
