@@ -44,7 +44,7 @@ tags: []
 # http://jekyllrb.com/docs/configuration/
 
 #	document_root
-root:
+root:	'./'
 
 #Site Source
 source:      _posts

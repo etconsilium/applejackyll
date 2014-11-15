@@ -21,6 +21,7 @@ use \Aptoma\Twig\Extension\MarkdownExtension;
 use \Aptoma\Twig\Extension\MarkdownEngine;
 use \Michelf\MarkdownExtra; //  необходимо записывать в композер вручную, автоматически зависимости не подгружаются
 use \Eloquent\Pathogen\Path as EPath;
+use Eloquent\Pathogen\FileSystem\FileSystemPath as EFSPath;
 use \RecursiveArrayObject as JSObject;
 
 
@@ -83,41 +84,43 @@ class Applejackyll extends \stdClass{
 
         $this->site=new JSObject( \Symfony\Component\Yaml\Yaml::parse( $c ) );
 
-//        $this->_page=&$this->site['page'];
-
         $site=&$this->site;
 
+        //  обработка общих конфигов
         if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
-var_dump($site['root']);
         if (empty($site['root'])) $site['root']=getcwd();
-        $site['source_path']=$site['root'].DIRECTORY_SEPARATOR.$site['source'];
-var_dump($site['root'], $p=  EPath::fromString($site['root'])); die;
+        
+        $basepath = EFSPath::fromString(dirname($configfile));
+        $rootpath = $basepath->resolve( EFSPath::fromString($site['root']) );
+        $site['root'] = $rootpath->normalize()->string();
+
+        $site['source_path']=$rootpath->resolve( EFSPath::fromString($site['source']))->normalize()->string();
+
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
         if (!is_dir($site['temp'])) {
-            $site['temp']=$site['root'].DIRECTORY_SEPARATOR.$site['temp'];
+            $site['temp']=$rootpath->resolve( EFSPath::fromString($site['temp']))->normalize()->string();
             @mkdir($site['temp'],0755,1);
         }
         $this->_cache=new CacheSpooler($site['cache'], $site['temp']);
 
         if (!is_dir($site['destination'])) {
-            $site['destination']=$site['root'].DIRECTORY_SEPARATOR.$site['destination'];
+            $site['destination']=$rootpath->resolve( EFSPath::fromString($site['destination']))->normalize()->string();
             @mkdir($site['destination'],0755,1);
         }
-
+        var_dump($site['destination']);
         if (empty($site['frontmatter']) || !in_array($site['frontmatter'], ['jekyll','phrozn'] ) )
             $site['frontmatter']='jekyll';
 
         return $this;
     }
 
-    protected function _get_normalize_path($path1, $root='')
+    protected function _get_normalize_path($path, EFSPath $root)
     {
-        
+        return $root->resolve( EFSPath::fromString($path))->normalize()->string();
     }
     
     protected function _get_dest_path($page)
     {
-        var_dump($page);
     }
 
     /**
