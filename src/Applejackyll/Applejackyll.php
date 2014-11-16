@@ -56,7 +56,7 @@ class Applejackyll extends \stdClass{
     public function init($configfile)
     {
         if (!(is_string($configfile) && is_file($configfile) && is_readable($configfile))) {
-            //  try search
+            //  попытка найти конфигурационный файл
             $finder=(new Finder)->files();
             $files=$finder
                 ->name(self::CONFIG_FILENAME)
@@ -68,12 +68,13 @@ class Applejackyll extends \stdClass{
             ;
             foreach ($files as $file) {$configfile=$file->getRealPath();break;}
         }
+        
+        $configfile=realpath($configfile);
         try {
             $c=file_get_contents($configfile);
         } catch (\Exception $e) {
             throw new \Symfony\Component\Filesystem\Exception\FileNotFoundException($e->getMessage()); die;
         }
-
         $this->site=\Symfony\Component\Yaml\Yaml::parse( $c );
 
         $site=&$this->site;
@@ -173,19 +174,18 @@ class Applejackyll extends \stdClass{
      */
     protected function phase1_file_prepare($file)
     {
-        //  не перепутайте пути
+        //  не перепутать пути
+        $basepath=$this->site['root'];
         $basename=$file->getBasename();
         $realpath=$file->getRealPath();
         $relative_path=$file->getRelativePath();
-//        $source_path=$this->site['source_path'];
-//        $dest_path=$this->site['dest_path'];
 
         //  порядок заполненения переменных подчиняется внутренней логике
         $page=$this->site['defaults']['values'];
 
         $page['source_path']=$realpath;  //  raw
-//
-        $page['hash']=sha1($realpath.md5_file($realpath));
+
+        $page['hash']=sha1($realpath.sha1_file($realpath));
         $page['type']=strtolower($file->getExtension());
 
         //  FrontMatter default like a jekyll
@@ -213,13 +213,8 @@ class Applejackyll extends \stdClass{
             //  не было разделителей, не псто
             $page['content']=trim($a[0]);
             $page['layout']=null;
-//            $page['dest_path']=$this->site['destination']
-//                .( !empty($relative_path) ? DIRECTORY_SEPARATOR.$relative_path : '' )
-//                .DIRECTORY_SEPARATOR.$basename;   //  wtf?
             $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
-            $page['dest_path']=$this->site['destination']
-                .DIRECTORY_SEPARATOR.str_replace($relative_path, '', $realpath);
-            ;
+            $page['dest_path']=$this->site['destination'].str_replace($this->site['source'], '', $realpath);
         }
         else {
             //  пост и много переменных. и много неоптимальной магии
@@ -229,7 +224,7 @@ class Applejackyll extends \stdClass{
 
             //  заголовок и имя файла без расширения
             if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
-            $filename=(empty($this->site['transliteration']) ? \URLify::filter($page['title']) : $page['title']);
+            $filename=(!empty($this->site['transliteration']) ? \URLify::filter($page['title']) : $page['title']);
 
             //  ошибка внутренней даты
             if (!empty($page['date']) && !strtotime($page['date'])) {
@@ -290,11 +285,9 @@ class Applejackyll extends \stdClass{
 
         }
         $this->_ids[]=$page['id']=$page['hash'];
-
         $this->_posts[$page['id']]=$page['date']->getTimestamp();
 
-
-        //
+        //  межсайтовые переменные категорий
         if (!empty($page['category'])) is_array($page['category'])?$page['categories']=array_merge($page['categories'],$page['category']):$page['categories'][]=$page['category'];
         if (!empty($this->site['categiries_path'])) $page['categories']=array_merge($page['categories'],explode(DIRECTORY_SEPARATOR,$relative_path));
         if (!empty($page['tag'])) is_array($page['tag'])?$page['tags']=array_merge($page['tags'],$page['tag']):$page['tags'][]=$page['tag'];
