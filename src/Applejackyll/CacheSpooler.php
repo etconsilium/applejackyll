@@ -25,7 +25,7 @@ class CacheSpooler implements \Doctrine\Common\Cache\Cache{
 
     function __construct($cache_list=null, $default_temp=null) {
         $this->_mem_start=memory_get_usage();
-        is_array($cache_list) && $this->init($cache_list, $default_temp);
+        $this->init($cache_list, $default_temp);
         return $this;
     }
 
