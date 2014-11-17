@@ -6,14 +6,14 @@ define ('APP_ID',__NAMESPACE__);
 
 use \Symfony\Component\Finder\Finder;
 use \Symfony\Component\Yaml\Yaml;   //  кривой
-use Twig_Autoloader;
-use Twig_Environment;
-use Twig_Extension;
+use \Twig_Autoloader;
+use \Twig_Environment;
+use \Twig_Extension;
 use \Aptoma\Twig\Extension\MarkdownExtension;
 use \Aptoma\Twig\Extension\MarkdownEngine;
 use \Michelf\MarkdownExtra; //  необходимо записывать в композер вручную, автоматически зависимости не подгружаются
 use \Eloquent\Pathogen\Path as EPath;
-use Eloquent\Pathogen\FileSystem\FileSystemPath as EFSPath;
+use \Eloquent\Pathogen\FileSystem\FileSystemPath as EFSPath;
 use \RecursiveArrayObject as JSObject;
 
 
@@ -88,17 +88,17 @@ class Applejackyll extends \stdClass{
         $site['root'] = $rootpath->normalize()->string();
 
         if (!is_dir($site['source'])) {
-            $site['source']=$rootpath->resolve( EFSPath::fromString($site['source']))->normalize()->string();
+            $site['source']=$this->_resolve_path($site['source']);
             @mkdir($site['source'],0755,1);
         }
         if (!is_dir($site['destination'])) {
-            $site['destination']=$rootpath->resolve( EFSPath::fromString($site['destination']))->normalize()->string();
+            $site['destination']=$this->_resolve_path($site['destination']);
             @mkdir($site['destination'],0755,1);
         }
 
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
         if (!is_dir($site['temp'])) {
-            $site['temp']=$rootpath->resolve( EFSPath::fromString($site['temp']))->normalize()->string();
+            $site['temp']=$this->_resolve_path($site['temp']);
             @mkdir($site['temp'],0755,1);
         }
         $this->_cache=new CacheSpooler($site['cache'], $site['temp']);
@@ -109,44 +109,37 @@ class Applejackyll extends \stdClass{
         return $this;
     }
 
-    protected function _get_normalize_path($path, EFSPath $root)
+    protected function _resolve_path($path, $root=null)
     {
-        return $root->resolve( EFSPath::fromString($path))->normalize()->string();
+        if (!is_string($root)) $root=$this->site['root'];
+        return EFSPath::fromString($root)->resolve( EFSPath::fromString($path))->normalize()->string();
     }
     
-    protected function _get_dest_path($page)
-    {
-    }
-
-    /**
-     * @param string|\Eloquent\Pathogen\Path $path
-     */
-    protected function _is_absolute_path($path)
-    {
-        
-    }
-    
+   
     protected function phase1_analyze()
     {
         $site=&$this->site;
 
-        $finder=(new Finder)->files();
-        foreach ($site['include'] as $fn) $finder->name($fn);
-        foreach ($site['exclude'] as $fn) $finder->exclude($fn);
-        foreach ($site['notname'] as $fn) $finder->notName($fn);
-        $posts=$finder
+        $finder=(new Finder);
+        $finder->files()
+            ->name('*')
             ->useBestAdapter()
             ->in($this->site['source'])
+            ->exclude($this->site['category_dir'])
+            ->exclude($this->site['tag_dir'])
             ->ignoreDotFiles(1)
             ->ignoreVCS(1)
             ->ignoreUnreadableDirs(1)
             ->sortByName()
         ;
+        foreach ($site['include'] as $fn) $finder->name($fn);
+        foreach ($site['exclude'] as $fn) $finder->exclude($fn);
+        foreach ($site['notname'] as $fn) $finder->notName($fn);
 
         /**
          * @var $file \SplFileInfo
          */
-        foreach ($posts as $file) { //  перевернём позже
+        foreach ($finder as $file) { //  перевернём позже
             $this->phase1_file_prepare($file);
         }
         $this->_cache->save('$categories',$this->_categories);
@@ -298,7 +291,7 @@ class Applejackyll extends \stdClass{
         foreach ($page['tags'] as $i) {
             $this->_tags[$i][]=$page['id'];
         }
-        $this->_cache->save('page#'.$page['id'],$page);
+        $this->_cache->save('$page#'.$page['id'],$page);
 
         return $this;
     }
@@ -317,7 +310,7 @@ class Applejackyll extends \stdClass{
 //        $site['pages']=$pages;  //  A list of all Pages. i do know that php havent resources for _all_ pages
         $prev=null;$next=null;
         foreach ($posts as $id) {
-            $page=$cache->fetch('page#'.$id);
+            $page=$cache->fetch('$page#'.$id);
             $page['prev']=&$prev;
             if ($prev) $page['prev']['next']=&$page;
 //            $site['html_pages'][$id]=$this->phase2_page_parse($page);
@@ -359,7 +352,7 @@ class Applejackyll extends \stdClass{
         }
     }
 
-    protected function phase3_additive()
+    protected function phase3_copy_files()
     {
         $site=$this->site;
         $finder=(new Finder);
@@ -367,6 +360,8 @@ class Applejackyll extends \stdClass{
             ->name('*')
             ->useBestAdapter()
             ->in($this->site['source'])
+            ->exclude($this->site['category_dir'])
+            ->exclude($this->site['tag_dir'])
             ->ignoreDotFiles(1)
             ->ignoreVCS(1)
             ->ignoreUnreadableDirs(1)
@@ -384,7 +379,28 @@ class Applejackyll extends \stdClass{
         }
     }
 
-
+    protected function phase3_gen_categories()
+    {
+//        $ctg=$this->_cache->fetch($pid='page#'.$id);
+        $this->_categories=$this->_cache->fetch('$categories');
+        
+        $sourcepath=$this->_resolve_path($this->site['category_dir'], $this->site['source']);
+        $targetpath=$this->_resolve_path($this->site['category_dir'], $this->site['destination']);
+        
+        foreach ($this->_categories as $category_name=>$ids) {
+            foreach ($ids as $id) {
+                $page=$this->_cache->fetch('$page#'.$id);
+                var_dump($page);
+//                @TODO: проблема с урлами и путями. проверить, привести к единому виду
+            }
+        }
+    }
+    
+    protected function phase3_gen_tags()
+    {
+        
+    }
+    
     public function clearCache($cache_id = null)
     {
         $this->_cache->flushAll($cache_id);
@@ -423,9 +439,9 @@ class Applejackyll extends \stdClass{
         $this->clearCache();
         $this->phase1_analyze();
         $this->phase2_synthesis();
-        $this->phase3_additive();
-//        $filesystem=new Filesystem();
-//        $tmp_path=$site['root'].DIRECTORY_SEPARATOR.$site['temp'].DIRECTORY_SEPARATOR;
+        $this->phase3_copy_files();
+        $this->phase3_gen_categories();
+        $this->phase3_gen_tags();
 
         return $this;
     }
