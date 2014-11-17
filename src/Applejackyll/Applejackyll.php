@@ -19,7 +19,7 @@ use \RecursiveArrayObject as JSObject;
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.6.16.4';
+    CONST VERSION='1.6.17.20';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
@@ -214,7 +214,7 @@ class Applejackyll extends \stdClass{
             $page['content']=trim($a[0]);
             $page['layout']=null;
             $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
-            $page['dest_path']=$this->site['destination'].str_replace($this->site['source'], '', $realpath);
+            $page['dest_path']=str_replace($this->site['source'], $this->site['destination'], $realpath);
         }
         else {
             //  пост и много переменных. и много неоптимальной магии
@@ -362,24 +362,25 @@ class Applejackyll extends \stdClass{
     protected function phase3_additive()
     {
         $site=$this->site;
-        if (!empty($this->site['copy'])) {
-            $finder=(new Finder)->files();
-            $finder->name('*');
-            foreach ($site['include'] as $fn) $finder->exclude($fn);
-            foreach ($site['exclude'] as $fn) $finder->exclude($fn);
-            foreach ($site['notname'] as $fn) $finder->notName($fn);
-            $files=$finder
-                ->useBestAdapter()
-                ->in($this->site['source_path'])
-                ->ignoreDotFiles(1)
-                ->ignoreVCS(1)
-                ->ignoreUnreadableDirs(1)
-                ->sortByName()
-            ;
-            foreach ($files as $file) {
-                $realpath=$file->getRealPath();
-                copy($realpath, str_replace($this->site['root'], $this->site['destination'], $realpath));
-            }
+        $finder=(new Finder);
+        $finder->files()
+            ->name('*')
+            ->useBestAdapter()
+            ->in($this->site['source'])
+            ->ignoreDotFiles(1)
+            ->ignoreVCS(1)
+            ->ignoreUnreadableDirs(1)
+            ->sortByName()
+        ;
+        foreach ($site['include'] as $fn) $finder->notName($fn);
+        foreach ($site['exclude'] as $fn) $finder->exclude($fn);
+        foreach ($site['notname'] as $fn) $finder->notName($fn);
+        
+        foreach ($finder as $file) {
+            $realpath=$file->getRealPath();
+            $targetpath=str_replace($this->site['source'], $this->site['destination'], $realpath);
+            @mkdir(dirname($targetpath),0755,1);
+            copy($realpath, $targetpath);
         }
     }
 
@@ -422,6 +423,7 @@ class Applejackyll extends \stdClass{
         $this->clearCache();
         $this->phase1_analyze();
         $this->phase2_synthesis();
+        $this->phase3_additive();
 //        $filesystem=new Filesystem();
 //        $tmp_path=$site['root'].DIRECTORY_SEPARATOR.$site['temp'].DIRECTORY_SEPARATOR;
 
