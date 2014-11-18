@@ -84,21 +84,12 @@ class Applejackyll extends \stdClass{
         $basepath = EFSPath::fromString(dirname($configfile));
         $rootpath = $basepath->resolve( EFSPath::fromString($site['root']?:'') );
         $site['root'] = $rootpath->normalize()->string();
-
-        if (!is_dir($site['source'])) {
-            $site['source']=$this->_resolve_path($site['source']);
-            @mkdir($site['source'],0755,1);
-        }
-        if (!is_dir($site['destination'])) {
-            $site['destination']=$this->_resolve_path($site['destination']);
-            @mkdir($site['destination'],0755,1);
-        }
-
+        
+        $this->_get_realpath($site['source']);
+        $this->_get_realpath($site['destination']);
         if (empty($site['temp'])) $site['temp']=sys_get_temp_dir();
-        if (!is_dir($site['temp'])) {
-            $site['temp']=$this->_resolve_path($site['temp']);
-            @mkdir($site['temp'],0755,1);
-        }
+        $this->_get_realpath($site['temp']);
+        
         $this->_cache=new CacheSpooler($site['cache'], $site['temp']);
 
         if (empty($site['frontmatter']) || !in_array($site['frontmatter'], ['jekyll','phrozn'] ) )
@@ -114,7 +105,17 @@ class Applejackyll extends \stdClass{
         if (!is_string($root)) $root=$this->site['root'];
         return EFSPath::fromString($root)->resolve( EFSPath::fromString($path))->normalize()->string();
     }
-    
+
+    protected function _get_realpath(&$path)
+    {
+        if (!is_dir($path)) {
+            $path=$this->_resolve_path($path);
+            @mkdir($path,0755,1);
+        } else {
+            $path=realpath($path);
+        }
+        return $path;
+    }
    
     protected function phase1_analyze()
     {
