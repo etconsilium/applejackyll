@@ -22,11 +22,9 @@ class Applejackyll extends \stdClass{
     CONST VERSION='1.6.17.20';
     CONST CONFIG_FILENAME='site.yaml';
 
-    public  $site=['pages'=>[],'posts'=>[],'categories'=>[],'tags'=>[]];
+    public  $site=[];
     protected $_ids=[];
     protected $_posts=[];
-    protected $_categories=[];
-    protected $_tags=[];
     protected $_urls=[];
     /**
      * @var \Applejackyll\CacheSpooler
@@ -142,8 +140,8 @@ class Applejackyll extends \stdClass{
         foreach ($finder as $file) { //  перевернём позже
             $this->phase1_file_prepare($file);
         }
-        $this->_cache->save('$categories',$this->_categories);
-        $this->_cache->save('$tags',$this->_tags);
+        $this->_cache->save('$categories',$site['categories']);
+        $this->_cache->save('$tags',$site['tags']);
         $this->_cache->save('$ids',$this->_ids);
         arsort($this->_posts); $this->_posts=array_keys($this->_posts);
         $this->_cache->save('$posts',$this->_posts);
@@ -282,14 +280,14 @@ class Applejackyll extends \stdClass{
 
         //  межсайтовые переменные категорий
         if (!empty($page['category'])) is_array($page['category'])?$page['categories']=array_merge($page['categories'],$page['category']):$page['categories'][]=$page['category'];
-        if (!empty($this->site['categiries_path'])) $page['categories']=array_merge($page['categories'],explode(DIRECTORY_SEPARATOR,$relative_path));
+//        if (!empty($this->site['categories_path'])) $page['categories']=array_merge($page['categories'],explode(DIRECTORY_SEPARATOR,$relative_path));
         if (!empty($page['tag'])) is_array($page['tag'])?$page['tags']=array_merge($page['tags'],$page['tag']):$page['tags'][]=$page['tag'];
 
         foreach ($page['categories'] as $i) {
-            $this->_categories[$i][]=$page['id'];
+            $this->site['categories'][$i][]=$page['id'];
         }
         foreach ($page['tags'] as $i) {
-            $this->_tags[$i][]=$page['id'];
+            $this->site['tags'][$i][]=$page['id'];
         }
         $this->_cache->save('$page#'.$page['id'],$page);
 
@@ -325,17 +323,18 @@ class Applejackyll extends \stdClass{
     protected function phase2_page_parse($page)
     {
         $site=&$this->site;
-        $this->_page=&$page;
+        $this->site['page']=&$page;
 
 //        if ('md'===$page['type']) {
         if (!empty($page['layout'])) {
 
             \Twig_Autoloader::register();
             $twig=new \Twig_Environment(new \Twig_Loader_Filesystem($site['root'].DIRECTORY_SEPARATOR.$site['layouts'])
-                ,['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
+                ,['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false, 'strict_variables'=>true]);
 
             $engine = new \Aptoma\Twig\Extension\MarkdownEngine\MichelfMarkdownEngine();
-            $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
+            $parser=new \Twig_Environment(new \Twig_Loader_String()
+                ,['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false, 'strict_variables'=>true]);
             $parser->addExtension(new \Aptoma\Twig\Extension\MarkdownExtension($engine));
 
             $tmp_content=$page['content'];
@@ -347,7 +346,8 @@ class Applejackyll extends \stdClass{
             return $parser->render($content, ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
         }
         else {
-            $parser=new \Twig_Environment(new \Twig_Loader_String(),['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false]);
+            $parser=new \Twig_Environment(new \Twig_Loader_String()
+                ,['cache'=>$site['temp'], 'auto_reload'=>true, 'autoescape'=>false, 'strict_variables'=>true]);
             return $parser->render(file_get_contents($page['source_path']), ['site'=>$site, 'page'=>$page]);
         }
     }
@@ -382,15 +382,16 @@ class Applejackyll extends \stdClass{
     protected function phase3_gen_categories()
     {
 //        $ctg=$this->_cache->fetch($pid='page#'.$id);
-        $this->_categories=$this->_cache->fetch('$categories');
+        if (empty($this->site['categories']))
+            $this->site['categories']=$this->_cache->fetch('$categories');
         
         $sourcepath=$this->_resolve_path($this->site['category_dir'], $this->site['source']);
         $targetpath=$this->_resolve_path($this->site['category_dir'], $this->site['destination']);
         
-        foreach ($this->_categories as $category_name=>$ids) {
+        foreach ($this->site['categories'] as $category_name=>$ids) {
             foreach ($ids as $id) {
                 $page=$this->_cache->fetch('$page#'.$id);
-                var_dump($page);
+//                var_dump($page);
 //                @TODO: проблема с урлами и путями. проверить, привести к единому виду
             }
         }
