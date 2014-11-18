@@ -19,7 +19,7 @@ use \RecursiveArrayObject as JSObject;
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.6.17.20';
+    CONST VERSION='1.7.18.22';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=[];
