@@ -104,6 +104,8 @@ class Applejackyll extends \stdClass{
         if (empty($site['frontmatter']) || !in_array($site['frontmatter'], ['jekyll','phrozn'] ) )
             $site['frontmatter']='jekyll';
 
+        if (empty($this->site['baseurl'])) $this->site['baseurl']='/';
+        
         return $this;
     }
 
@@ -120,7 +122,6 @@ class Applejackyll extends \stdClass{
 
         $finder=(new Finder);
         $finder->files()
-            ->name('*')
             ->useBestAdapter()
             ->in($this->site['source'])
             ->exclude($this->site['category_dir'])
@@ -168,6 +169,8 @@ class Applejackyll extends \stdClass{
         //  не перепутать пути
         $basepath=$this->site['root'];
         $basename=$file->getBasename();
+        $filename=$file->getBasename('.'.$file->getExtension());    //  ниже может перезаписываться
+        if ($this->site['transliteration']) $filename=$this->urlify($filename);
         $realpath=$file->getRealPath();
         $relative_path=$file->getRelativePath();
 
@@ -200,87 +203,82 @@ class Applejackyll extends \stdClass{
             throw new \Symfony\Component\Yaml\Exception\ParseException('parsing trouble'); die;
         }
 
+        //  готовим пути
+        
         if (1===count($a)) {
             //  не было разделителей, не псто
             $page['content']=trim($a[0]);
             $page['layout']=null;
             $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
-            $page['dest_path']=str_replace($this->site['source'], $this->site['destination'], $realpath);
+            $page['url']=str_replace($this->site['source'].DIRECTORY_SEPARATOR, $this->site['baseurl'], $realpath);
+//            $page['dest_path']=str_replace($this->site['source'], $this->site['destination'], $realpath);
+
         }
-        else {
+        elseif (2===count($a)) {
             //  пост и много переменных. и много неоптимальной магии
 
             $page=array_replace_recursive($page,(array)Yaml::parse($a[0]));
             $page['content']=trim($a[1]);
 
-            //  заголовок и имя файла без расширения
-            if (empty($page['title'])) $page['title']=$file->getBasename('.'.$file->getExtension());
-            $filename=(!empty($this->site['transliteration']) ? \URLify::filter($page['title']) : $page['title']);
-
             //  ошибка внутренней даты
             if (!empty($page['date']) && !strtotime($page['date'])) {
                 trigger_error("Invalid date format `{$page['date']}` in file `{$realpath}`",E_USER_NOTICE);
             }
-            elseif (empty($page['date'])) { //  ещё больше магии
 
-                //  дата не была указана. пытаемся выделить из пути
-                $pattern='*/?(?<year>\d{4})[\.\-\s/\\\](?<month>\d{2})[\.\-\s/\\\](?<day>\d{2})[\.\-\s/\\\]?*';
-                $a=[];  //  all'sok
-                $a=preg_split($pattern, $relative_path.DIRECTORY_SEPARATOR.$basename);
+            if (empty($page['date'])) { //  ещё больше магии
+                //  дата не была указана. пытаемся выделить из пути^W имени файла
 
-                if (1===sizeof($a)) {
-                    //  нет даты, не надо подставлять в путь
-                    $page['dest_path']=$this->site['destination']
-                        .( !empty($relative_path) ? DIRECTORY_SEPARATOR.$relative_path : '' )
-                        .DIRECTORY_SEPARATOR.$filename
-                        .'.html';   //  hardcode ext
-                    $page['url']=$this->site['baseurl'].$filename.'.html';
+                $date_pattern='`/?(?<year>\d{4})[\.\-\s/\\\](?<month>\d{2})[\.\-\s/\\\](?<day>\d{2})[\.\-\s/\\\]?(?<filename>.*)[.][^.]*$`ui';
+//                $date_pattern='`/?(?<year>\d{4})[\.\-\s/\\\](?<month>\d{2})[\.\-\s/\\\](?<day>\d{2})[\.\-\s/\\\]?`ui';
+                $d=[]; $d=preg_split($date_pattern, $basename);
 
+                if (1===sizeof($d)) {
+                    //  нет даты, не надо подставлять в путь!
+                    $page['url']=$this->site['baseurl'].$relative_path.'/'.$filename.'.html';  //  hardcode ext
                     //  забираем дату из времени модификации файла
                     $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
-
-                    //  вдруг есть категории
-                    $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$relative_path)));
                 }
-                else {
-                    //  перваяя часть - категории, вторая - что-то ещё, ненужное и неинтересное
-                    $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$relative_path)));
-
+                elseif (2===sizeof($d)) {
                     //  достаём дату тем же шаблоном
-                    preg_match_all($pattern, $relative_path.DIRECTORY_SEPARATOR.$basename, $a,PREG_SET_ORDER);   //  all'sok
-                    array_shift($a[0]); $a=$a[0];
-                    if (is_array($a))
-                        $page['date']=new \DateTime("{$a['year']}-{$a['month']}-{$a['day']}");
-                    else
-                        $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
+                    preg_match_all($date_pattern, $basename, $d, PREG_SET_ORDER);
+                    array_shift($d[0]); $d=$d[0];
 
-                    $page['dest_path']=$this->site['destination']
-                        .DIRECTORY_SEPARATOR.$page['date']->format('Y'.DIRECTORY_SEPARATOR.'m'.DIRECTORY_SEPARATOR.'d')
-                        .DIRECTORY_SEPARATOR.$filename
-                        .'.html';   //  hardcode ext
+                    if (is_array($d)) {
+                        $page['date']=new \DateTime("{$d['year']}-{$d['month']}-{$d['day']}");
+                        $filename=$d['filename'];
+                    }
+                    else {
+                        $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
+                        $filename=$page['title'];
+                    }
+                    if ($this->site['transliteration']) $filename=$this->urlify($filename);
+
                     $page['url']=$this->site['baseurl'].$page['date']->format('Y/m/d/').$filename.'.html';
                 }
             }
 
-            if (!empty($page['slug']))
-                $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? \URLify::filter($page['slug']) : $page['slug']).'.html';
-
-            if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
-                $page['url']=str_replace('.html','-'.count($this->_urls).'.html',$page['url']);    //  если не добавлять статей задним числом, то номера совпадут
-
-            $this->_urls[]=$page['url'];
-            if (empty($page['permalink']))
-                $page['permalink']=$this->site['baseurl'].$page['hash'].'.html';
-
-            //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
-
         }
+
+        if (!empty($page['slug']))
+            $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? $this->urlify($page['slug']) : $page['slug']).'.html';
+
+        if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
+            $page['url']=str_replace('.html','-'.count($this->_urls).'.html',$page['url']);    //  если не добавлять статей задним числом, то номера совпадут
+
+        $this->_urls[]=$page['url'];
+        if (empty($page['permalink']))
+            $page['permalink']=$this->site['baseurl'].$page['hash'].'.html';
+
+        $page['dest_path']=preg_replace('`^'.$this->site['baseurl'].'`', $this->site['destination'].DIRECTORY_SEPARATOR, $page['url']);
+        //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
+
         $this->_ids[]=$page['id']=$page['hash'];
         $this->_posts[$page['id']]=$page['date']->getTimestamp();
 
-        //  межсайтовые переменные категорий
+        //  категории из пути и переменных
+        $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$relative_path)));
         if (!empty($page['category'])) is_array($page['category'])?$page['categories']=array_merge($page['categories'],$page['category']):$page['categories'][]=$page['category'];
-//        if (!empty($this->site['categories_path'])) $page['categories']=array_merge($page['categories'],explode(DIRECTORY_SEPARATOR,$relative_path));
+        // @TODO        if (!empty($this->site['categories_path'])) $page['categories']=array_merge($page['categories'],explode(DIRECTORY_SEPARATOR,$relative_path));
         if (!empty($page['tag'])) is_array($page['tag'])?$page['tags']=array_merge($page['tags'],$page['tag']):$page['tags'][]=$page['tag'];
 
         foreach ($page['categories'] as $i) {
