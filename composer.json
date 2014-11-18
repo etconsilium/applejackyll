@@ -5,7 +5,7 @@
     ,"keywords": ["jekyll","octopress","liquid","static blog","site generator"]
     ,"license": "BSDLv2"
     ,"copyright": "(cc-by-nc)"
-    ,"version":"1.5.1"
+    ,"version":"1.5.2"
     ,"require": {
         "php":">5.5",
 
@@ -15,7 +15,6 @@
         "symfony/yaml": "dev-master",
         "doctrine/cache": "dev-master",
         "eloquent/pathogen": "dev-master",
-        "etconsilium/php-recursive-array-object": "dev-master",
 
         "jbroadway/urlify": "*",
         "twig/twig": "*",
