@@ -1,5 +1,5 @@
 .*
 composer.lock
-vendor
-nbproject
-/_cache/
+vendor/
+nbproject/
+_cache/

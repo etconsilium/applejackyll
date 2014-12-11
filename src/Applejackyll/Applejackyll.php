@@ -17,9 +17,10 @@ use \Eloquent\Pathogen\FileSystem\FileSystemPath as EFSPath;
 use \RecursiveArrayObject as JSObject;
 
 
+
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.7.18.22';
+    CONST VERSION='2.0.10.17';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=[];
@@ -463,6 +464,18 @@ class Applejackyll extends \stdClass{
     public function server()
     {
         return (new \Applejackyll\Server($this));
+    }
+    public function parser()
+    {
+        return (new \Applejackyll\Parser($this));
+    }
+    public function generator()
+    {
+        return (new \Applejackyll\Generator($this));
+    }
+    public function storage()
+    {
+        return (new \Applejackyll\Storage($this));
     }
 }
 
