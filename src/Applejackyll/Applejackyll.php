@@ -314,12 +314,12 @@ class Applejackyll extends \stdClass{
         $site['tags']=$tags;
         $site['posts']=$posts;  //  A reverse chronological list of all Posts. i do not know that it will contains
 //        $site['pages']=$pages;  //  A list of all Pages. i do know that php havent resources for _all_ pages
-        $prev=new \stdClass; $next=new \stdClass;
+        $prev=$site['defaults']['values']; $next=$site['defaults']['values'];
         foreach ($posts as $id) {
             $page=$cache->fetch('$page#'.$id);
             $page['prev']=&$prev;
             $page['previous']=&$page['prev'];   //  synonym
-            if ($prev) $page['prev']['next']=&$page;
+            if ($prev['url']) $page['prev']['next']=&$page;
 //            $site['html_pages'][$id]=$this->phase2_page_parse($page);
             @mkdir(dirname($page['dest_path']),0775,1); //  предохранительный костыль
             file_put_contents($page['dest_path']
