@@ -70,23 +70,23 @@ exclude:  ['.git','.svn']
 notname:  []
 # остальные файлы копируются всегда и записываются в массив static_files
 
-# yaml-header in the manner
-## of jekyll: --- between triple dash --- (security & default)
-## of phrozn:  before triple dash ---
-frontmatter: jekyll
-
-timezone:    'Europe/Moscow'
-date_format: 'Y/m/d'
-
-encoding: 'UTF-8'
+timezone:     'Europe/Moscow'
+date_format:  'Y/m/d'
+locale:       ''
+encoding:     'UTF-8'
 
 # Set defaults for YAML Front Matter variables.
 # Let’s say that you want to add a default layout to all pages and posts in your site. You would add this to your _config.yml file:
 # do not change please
 defaults:
   scope:
-    path: "projects"
-    type: "pages"
+    path: 'projects'
+    type: 'pages'
+    # yaml-header in the manner
+    ## of jekyll: --- between triple dash --- (security & default)
+    ## of phrozn:  before triple dash ---
+    frontmatter: jekyll
+
   values:
     author: ''
     layout: 'post'
