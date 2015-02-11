@@ -19,7 +19,7 @@ use \RecursiveArrayObject as JSObject;
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.8.11.2';
+    CONST VERSION='1.8.19.2';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=[];
@@ -176,7 +176,7 @@ class Applejackyll extends \stdClass{
         $relative_path=$file->getRelativePath();
 
         //  порядок заполненения переменных подчиняется внутренней логике
-        $page=$this->site['defaults']['values'];    //  выделить new Page @TODO
+        $page=$this->site['defaults']['values'];
 
         $page['source_path']=$realpath;  //  raw
 
@@ -220,16 +220,22 @@ class Applejackyll extends \stdClass{
 
             $page=array_replace_recursive($page,(array)Yaml::parse($a[0]));
             $page['content']=trim($a[1]);
-            if (is_int($page['date'])) {
-                $page['date'] = date('Y-m-d H:i:s', $page['date']);
+
+            if (!empty($page['date'])) {
+                if (is_int($page['date'])) {
+                    // $page['date'] = new \DateTime( date('Y-m-d H:i:s', $page['date']) );
+                }
+                elseif (is_string($page['date'])) {
+                    $page['date'] = strtotime( $page['date'] );
+                }
+                else {
+                    //  ошибка внутренней даты
+                    $page['date'] = null;   //  @TODO Exeption date error
+                    trigger_error("Invalid date format `{$page['date']}` in file `{$realpath}`",E_USER_NOTICE);
+                }
             }
 
-            //  ошибка внутренней даты
-            if (!empty($page['date']) && !strtotime($page['date'])) {
-                trigger_error("Invalid date format `{$page['date']}` in file `{$realpath}`",E_USER_NOTICE);
-            }
-
-            if (empty($page['date'])) { //  ещё больше магии
+            // if (empty($page['date'])) { //  ещё больше магии
                 //  дата не была указана. пытаемся выделить из пути^W имени файла
 
                 $date_pattern='`/?(?<year>\d{4})[\.\-\s/\\\](?<month>\d{2})[\.\-\s/\\\](?<day>\d{2})[\.\-\s/\\\]?(?<filename>.*)[.][^.]*$`ui';
@@ -238,9 +244,8 @@ class Applejackyll extends \stdClass{
 
                 if (1===sizeof($d)) {
                     //  нет даты, не надо подставлять в путь!
-                    $page['url']=$this->site['baseurl'].$relative_path.'/'.$filename.'.html';  //  hardcode ext
+                    
                     //  забираем дату из времени модификации файла
-                    $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
                 }
                 elseif (2===sizeof($d)) {
                     //  достаём дату тем же шаблоном
@@ -248,30 +253,31 @@ class Applejackyll extends \stdClass{
                     array_shift($d[0]); $d=$d[0];
 
                     if (is_array($d)) {
-                        $page['date']=new \DateTime("{$d['year']}-{$d['month']}-{$d['day']}");
+                        $page['date']=strtotime("{$d['year']}-{$d['month']}-{$d['day']} 12:00");
                         $filename=$d['filename'];
                     }
                     else {
-                        $page['date']=new \DateTime(date('Y-m-d H:i:s',$file->getMTime()));
-                        $filename=$page['title'];
+                        $page['date']=$file->getMTime();    //  ?
                     }
-                    if ($this->site['transliteration']) $filename=$this->urlify($filename);
-
-                    $page['url']=$this->site['baseurl'].$page['date']->format('Y/m/d/').$filename.'.html';
                 }
-            }
-            else {
-                $page['date']=new \DateTime($page['date']);
-                $filename=$page['title'];
+
+                if (!empty($page['title'])) $filename=$page['title'];
+
                 if ($this->site['transliteration']) $filename=$this->urlify($filename);
-                $page['url']=$this->site['baseurl'].$page['date']->format('Y/m/d/').$filename.'.html';
-            }
+
+                if (empty($page['date'])) {
+                    $page['url']=$this->site['baseurl'].$relative_path.'/'.$filename.'.html';  //  hardcode ext
+                }
+                else {
+                    $page['url']=$this->site['baseurl'].date( 'Y/m/d/', $page['date'] ).$filename.'.html';
+                }
+            // }
 
         }
-
+var_dump($page['url'], $page['layout']);
         if (!empty($page['slug']))
             $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? $this->urlify($page['slug']) : $page['slug']).'.html';
-// var_dump($page);
+
         if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
             $page['url']=str_replace('.html','-'.count($this->_urls).'.html',$page['url']);    //  если не добавлять статей задним числом, то номера совпадут
 
@@ -281,9 +287,9 @@ class Applejackyll extends \stdClass{
 
         $page['dest_path']=preg_replace('`^'.$this->site['baseurl'].'`', $this->site['destination'].DIRECTORY_SEPARATOR, $page['url']);
         //  @TODO + shorter() $page['shortlink'] or twig-plugin shorter, clicker
-
+// var_dump($page['date'], $page['url'], date( 'Y/m/d/', $page['date'] ), $this->site['baseurl'].date( 'Y/m/d/', $page['date'] ).$filename.'.html', $page['dest_path']);
         $this->_ids[]=$page['id']=$page['hash'];
-        $this->_posts[$page['id']]=$page['date']->getTimestamp();
+        $this->_posts[$page['id']]=$page['date'];
 
         //  категории из пути и переменных
         $page['categories']=array_merge($page['categories'],array_filter(explode(DIRECTORY_SEPARATOR,$relative_path)));
@@ -314,12 +320,11 @@ class Applejackyll extends \stdClass{
         $site['tags']=$tags;
         $site['posts']=$posts;  //  A reverse chronological list of all Posts. i do not know that it will contains
 //        $site['pages']=$pages;  //  A list of all Pages. i do know that php havent resources for _all_ pages
-        $prev=$site['defaults']['values']; $next=$site['defaults']['values'];
+        $prev=null;$next=null;
         foreach ($posts as $id) {
             $page=$cache->fetch('$page#'.$id);
             $page['prev']=&$prev;
-            $page['previous']=&$page['prev'];   //  synonym
-            if ($prev['url']) $page['prev']['next']=&$page;
+            if ($prev) $page['prev']['next']=&$page;
 //            $site['html_pages'][$id]=$this->phase2_page_parse($page);
             @mkdir(dirname($page['dest_path']),0775,1); //  предохранительный костыль
             file_put_contents($page['dest_path']
