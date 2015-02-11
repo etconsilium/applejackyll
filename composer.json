@@ -5,9 +5,9 @@
     ,"keywords": ["jekyll","octopress","liquid","static blog","site generator"]
     ,"license": "BSDLv2"
     ,"copyright": "(cc-by-nc)"
-    ,"version":"1.5.2"
+    ,"version":"1.5.3"
     ,"require": {
-        "php":">5.5",
+        "php":">=5.5",
 
         "symfony/console": "dev-master",
         "symfony/filesystem": "dev-master",
@@ -18,8 +18,7 @@
 
         "jbroadway/urlify": "*",
         "twig/twig": "*",
-        "aptoma/twig-markdown": "*",
-        "michelf/php-markdown": "*"
+        "aptoma/twig-markdown": "*"
     }
     ,
     "autoload": {
@@ -27,4 +26,8 @@
     }
     ,
     "bin": ["bin/console.php"]
+    ,
+    "config": {
+        "bin-dir": "./bin"
+    }
 }
