@@ -80,6 +80,9 @@ class Applejackyll extends \stdClass{
         //  обработка общих конфигов
         if (!empty($site['timezone'])) date_default_timezone_set($site['timezone']);
 
+        if (empty($site['locale'])) $site['locale']=setlocale(0,0);
+        setlocale(LC_ALL, $site['locale']);
+
 //        if (empty($site['root'])) $site['root']='./';
         $basepath = EFSPath::fromString(dirname($configfile));
         $rootpath = $basepath->resolve( EFSPath::fromString($site['root']?:'') );
@@ -274,7 +277,7 @@ class Applejackyll extends \stdClass{
             // }
 
         }
-var_dump($page['url'], $page['layout']);
+// var_dump($page['url'], $page['layout']);
         if (!empty($page['slug']))
             $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? $this->urlify($page['slug']) : $page['slug']).'.html';
 
