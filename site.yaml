@@ -90,11 +90,13 @@ defaults:
   values:
     author: ''
     layout: 'post'
+    layput_ext: 'html'
     id: null
     date: null
     title: ''
     content: ''
     permalink: null
+    url: ''
     path: null
     previous: null
     next: null
@@ -133,7 +135,7 @@ watch:  false
 
 host: '127.0.0.1'
 port: 4040
-baseurl:  '/'
+baseurl:  ''
 url:  '//localhost:4040'
 #Detach the server from the terminal
 detach: true

@@ -19,7 +19,7 @@ use \RecursiveArrayObject as JSObject;
 
 class Applejackyll extends \stdClass{
 
-    CONST VERSION='1.7.18.22';
+    CONST VERSION='1.8.11.2';
     CONST CONFIG_FILENAME='site.yaml';
 
     public  $site=[];
@@ -176,7 +176,7 @@ class Applejackyll extends \stdClass{
         $relative_path=$file->getRelativePath();
 
         //  порядок заполненения переменных подчиняется внутренней логике
-        $page=$this->site['defaults']['values'];
+        $page=$this->site['defaults']['values'];    //  выделить new Page @TODO
 
         $page['source_path']=$realpath;  //  raw
 
@@ -220,6 +220,9 @@ class Applejackyll extends \stdClass{
 
             $page=array_replace_recursive($page,(array)Yaml::parse($a[0]));
             $page['content']=trim($a[1]);
+            if (is_int($page['date'])) {
+                $page['date'] = date('Y-m-d H:i:s', $page['date']);
+            }
 
             //  ошибка внутренней даты
             if (!empty($page['date']) && !strtotime($page['date'])) {
@@ -257,12 +260,18 @@ class Applejackyll extends \stdClass{
                     $page['url']=$this->site['baseurl'].$page['date']->format('Y/m/d/').$filename.'.html';
                 }
             }
+            else {
+                $page['date']=new \DateTime($page['date']);
+                $filename=$page['title'];
+                if ($this->site['transliteration']) $filename=$this->urlify($filename);
+                $page['url']=$this->site['baseurl'].$page['date']->format('Y/m/d/').$filename.'.html';
+            }
 
         }
 
         if (!empty($page['slug']))
             $page['url']=$this->site['baseurl'].(!empty($this->site['transliteration']) ? $this->urlify($page['slug']) : $page['slug']).'.html';
-
+// var_dump($page);
         if (in_array($page['url'],$this->_urls))    //  вдруг коллизия
             $page['url']=str_replace('.html','-'.count($this->_urls).'.html',$page['url']);    //  если не добавлять статей задним числом, то номера совпадут
 
@@ -305,10 +314,11 @@ class Applejackyll extends \stdClass{
         $site['tags']=$tags;
         $site['posts']=$posts;  //  A reverse chronological list of all Posts. i do not know that it will contains
 //        $site['pages']=$pages;  //  A list of all Pages. i do know that php havent resources for _all_ pages
-        $prev=null;$next=null;
+        $prev=new \stdClass; $next=new \stdClass;
         foreach ($posts as $id) {
             $page=$cache->fetch('$page#'.$id);
             $page['prev']=&$prev;
+            $page['previous']=&$page['prev'];   //  synonym
             if ($prev) $page['prev']['next']=&$page;
 //            $site['html_pages'][$id]=$this->phase2_page_parse($page);
             @mkdir(dirname($page['dest_path']),0775,1); //  предохранительный костыль
@@ -339,7 +349,7 @@ class Applejackyll extends \stdClass{
             $tmp_content=$page['content'];
             $page['content']='{% markdown %}'.$page['content'].'{% endmarkdown %}';
 
-            $content=$twig->render($page['layout'].'.twig', ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
+            $content=$twig->render($page['layout'].'.'.$page['layout_ext'], ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
             $page['content']=$tmp_content;
 
             return $parser->render($content, ['site'=>$site, 'page'=>$page, 'content'=>$page['content']]);
