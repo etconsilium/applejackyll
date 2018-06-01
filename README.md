@@ -8,9 +8,8 @@ Jeckyll clone
 
 ```
     "require": {
-		"php":">5.3",
-
-		"etconsilium/applejackyll": "dev-master"
+	"php":">5.3",
+	"etconsilium/applejackyll": "dev-master"
     }
     ,
     "repositories": [
