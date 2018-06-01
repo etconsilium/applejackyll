@@ -3,7 +3,7 @@
     ,"description": "Yet Another Jekyll Clone. Powered by Markdown, Twig, Console. Addicted by MLP ^__^"
     ,"tags": ["jekyll","octopress"]
     ,"keywords": ["jekyll","octopress","liquid","static blog","site generator"]
-    ,"license": "BSDLv2"
+    ,"license": "WTFPL"
     ,"copyright": "(cc-by-nc)"
     ,"version":"1.5.3"
     ,"require": {
