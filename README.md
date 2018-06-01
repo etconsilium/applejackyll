@@ -12,13 +12,13 @@ Jeckyll clone
 
 		"etconsilium/applejackyll": "dev-master"
     }
-	,
-	"repositories": [
-		{
+    ,
+    "repositories": [
+	{
             "type": "vcs",
             "url": "https://github.com/etconsilium/applejackyll"
         }
-	]
+    ]
 
 ```
 
